@@ -1,0 +1,35 @@
+Record ID,Company name,Street Address,City,State/Region (AU),Postal Code,Latitude,Longitude,Company owner,Lifecycle Stage,Company Domain Name,Phase,Estimated PUM,Coord Source
+31329928607,Country Wide Property,104 Bradley St,Guyra,NSW,2365,-30.2180699,151.6714907,Kylie O'Brien,Target,countrywideproperty.net.au,,960.0,hubspot
+31327725668,City and Country Realty,23 Miles St,Mount Isa City,QLD,4825,-20.7256546,139.4915771,Billy Seller,Customer,cityandcountryrealty.com.au,,600.0,hubspot
+39248004494,RE/MAX Coast and Country,2 Main St,Buderim,QLD,4556,-26.6841653,153.0551264,Billy Seller,Engaged,sunshinecoastandcountry.com.au,,360.0,hubspot
+31321690896,Country Values Real Estate,4 Brockman St,Gingin,WA,6503,-31.3474234,115.9050092,Catherine Wells,Target,cvcp.com.au,,360.0,hubspot
+31296637572,Town & Country Real Estate,Shop 3/254 Pitt Street,Merrylands,NSW,2160,-33.835883,150.976594,Kylie O'Brien,Target,townandcountryrealestate.com.au,,330.0,postcode
+31327565064,First National Coast & Country,5/65 Manning Street,Gerringong,NSW,2533,-34.645377,150.756883,Kylie O'Brien,Marketing Qualified Lead,coastandcountryfn.com.au,,330.0,postcode
+31331354895,Across Country Real Estate & Mortgage Brokering,86 Lamb St,Murgon,QLD,4605,-26.241283,151.9410347,Billy Seller,Target,acrosscountry.com.au,,240.0,hubspot
+31278053437,Sydney Country Living,2/6 Booralie Rd,Terrey Hills,NSW,2084,-33.682823,151.2279156,Kylie O'Brien,Target,sydneycountryliving.com.au,,240.0,hubspot
+31287627585,Elders Curra Country,1 Birdwood Dr,Gunalda,QLD,4570,-25.9939431,152.5647735,Billy Seller,Target,curracountry.eldersrealestate.com.au,,240.0,hubspot
+31296794522,Alpine Country Properties,1 Gippsland St,Jindabyne,NSW,2627,-36.4154909,148.6213368,Kylie O'Brien,Target,alpinecountryproperties.com.au,,240.0,hubspot
+31296794492,Armidale Town & Country Real Estate,116 Rusden St,Armidale,NSW,2350,-30.515362,151.6668371,Kylie O'Brien,Target,armidaletownandcountry.com.au,,240.0,hubspot
+31326887339,Town & Country Real Estate Burwood,42 Railway Parade,Burwood,NSW,2134,-33.8773799,151.1021604,Kylie O'Brien,Target,townandcountry.com.au,,180.0,geocoded
+31297530247,RE/MAX Country - Crows Nest,6 Charlotte Street,Crows Nest,QLD,4355,-27.2614406,152.0565663,Billy Seller,Target,remaxcountry.com.au,,180.0,geocoded
+31287627564,Country Realty,206 Fitzgerald Street East,Northam,WA,6401,-31.640292,116.681727,Catherine Wells,Target,countryrealty.com.au,,180.0,postcode
+31331352626,Town & Country Real Estate,Shop 4/23-27 Amy St,Regents Park,NSW,2143,-33.8836245,151.0265776,Kylie O'Brien,Target,wstowncountry.com.au,,120.0,hubspot
+31296634438,One Agency Country to Coast,"PO Box 747,",Warragul,VIC,3820,-38.207476,145.922212,Catherine Wells,Engaged,oneagencycountrytocoast.com.au,,100.0,postcode
+31210147231,LJ Hooker Country Canberra,"Suite 2C, Level 1, Gungahlin Village 46-50 Hibberson Street",Gungahlin,ACT,2912,-35.172453,149.123552,Benjamin Ling,Customer,countrycanberra.ljhooker.com.au,,40.0,postcode
+31317973154,Aussie Country Properties,41 Chanter Street,Berrigan,NSW,2712,-35.6572799,145.8100137,Kylie O'Brien,Target,aussiecountryproperty.com.au,,30.0,geocoded
+31294187554,One Agency Coast And Country,"Suite 8, 34 Pacific Highway",Wyong,NSW,2259,-33.208801,151.377213,Kylie O'Brien,Target,oneagency.com.au,,30.0,postcode
+31289857838,Elders Real Estate Town & Country,7 Main Street,Beenleigh,QLD,4207,-27.7227566,153.2164779,Billy Seller,Target,townandcountry.eldersrealestate.com.au,,30.0,geocoded
+31764042674,Cold Country Real Estate,PO Box 490,Stanthorpe,QLD,4380,-28.60158006,151.8126377,Billy Seller,Engaged,coldcountry.com.au,,,postcode
+31723706395,Town Coast & Country Realty,27 Victoria St,Macedon,VIC,3440,-37.4231386,144.5643569,Catherine Wells,Engaged,tccrealty.com.au,,,geocoded
+31732991032,DaviesGladman Country Properties,3/39 Anslow Street,Woodend,VIC,3442,-37.3555341,144.5230027,Catherine Wells,Engaged,daviesgladman.com.au,,,geocoded
+31724944688,Coast to Country Real Estate Pty Ltd,PO Box 1223,Bairnsdale,VIC,387,,,Catherine Wells,Engaged,ctcrealestate.com.au,,,missing
+31763888536,Town & Country Valuers Property & Management Consultants,N/A,N/A,,0,22.2771318,114.1714032,,Engaged,townandcountryvaluers.com.au,,,geocoded
+31708954417,Bruce Falk Town and Country Property,22 Princess Hwy,Winchelsea,VIC,3241,-38.20363,143.892824,Catherine Wells,Engaged,brucefalk.com.au,,,postcode
+31331672982,LJ Hooker Country Canberra,"Suite 2C, Level 1, Gungahlin Village 46-50 Hibberson Street",Gungahlin,ACT,2912,-35.172453,149.123552,Kylie O'Brien,Engaged,,Maturity,,postcode
+31293831814,Town & Country Real Estate Corporate,,,,,,,Justin Watts,Engaged,,,,missing
+31284957487,Country Realty Toodyay,124 Stirling Terrace,Toodyay,WA,6566,-31.5542477,116.4737779,Benjamin Ling,Engaged,countryrealty.com.au,,,geocoded
+31287163155,Country Lane Properties Horsley Park,"Suite 1, 1840 The Horsley Drive",Horsley Park,NSW,2175,-33.845034,150.848192,Kylie O'Brien,Engaged,countrylaneproperties.com.au,,,postcode
+31296637571,Country Road Real Estate,136 Johnson St,Maffra,VIC,3860,-37.967439,146.9778393,Catherine Wells,Engaged,wellingtonrealestate.com.au,,,geocoded
+31324360862,Town And Country And Stock Service - Dubbo,201B Darling Street,Dubbo,NSW,2830,-32.2358712,148.6084466,Kylie O'Brien,Target,towncountrydubbo.com.au,,,geocoded
+31296794767,Country Property Brokers,22 South Coast Highway,Denmark,WA,6333,-34.9585527,117.3599687,Benjamin Ling,Engaged,countrypropertybrokers.com.au,,,geocoded
+31279709195,Coast Creek Country Realty,17/15 Bienvenue Drive,Currumbin Waters,QLD,4223,-28.152125,153.4764222,Billy Seller,Target,cccrealty.com.au,,,geocoded

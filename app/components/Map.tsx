@@ -1,0 +1,385 @@
+'use client';
+
+import { useEffect, useRef } from 'react';
+import {
+  MapContainer,
+  TileLayer,
+  CircleMarker,
+  Popup,
+  useMap,
+  FeatureGroup,
+} from 'react-leaflet';
+import { EditControl } from 'react-leaflet-draw';
+import {
+  PostcodeStore,
+  Territory,
+  getTerritoryColor,
+  AssignmentResult,
+  PostcodeData,
+  AustralianState,
+  STATE_BOUNDS,
+  CompanyData,
+  AppMode,
+  AssignmentMode,
+  AreaAnalysisResult,
+} from '../types';
+import { getPostcodesInPolygon, assignPostcodes } from '../utils/territoryAssignment';
+import { getCompaniesInPolygon, analyzeArea } from '../utils/areaAnalysis';
+import CompanyLayer from './CompanyLayer';
+import HeatMapLayer from './HeatMapLayer';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import 'leaflet-draw/dist/leaflet.draw.css';
+
+interface MapProps {
+  data: PostcodeStore;
+  territories: Record<string, Territory>;
+  selectedTerritory: Territory | null;
+  selectedState: AustralianState;
+  clickToAssign: boolean;
+  showUnassignedOnly: boolean;
+  showCompanies: boolean;
+  companies: Record<string, CompanyData>;
+  filteredCompanies: CompanyData[];
+  mode: AppMode;
+  assignmentMode: AssignmentMode;
+  showHeatMap: boolean;
+  onAssignment: (result: AssignmentResult) => void;
+  onClickAssign: (postcode: PostcodeData) => void;
+  onAreaAnalysis: (result: AreaAnalysisResult | null) => void;
+}
+
+// Component to handle map view changes when state changes
+function MapViewController({ selectedState }: { selectedState: AustralianState }) {
+  const map = useMap();
+
+  useEffect(() => {
+    const bounds = STATE_BOUNDS[selectedState];
+    map.setView(bounds.center, bounds.zoom);
+  }, [selectedState, map]);
+
+  return null;
+}
+
+interface DrawControlProps {
+  selectedTerritory: Territory | null;
+  selectedState: AustralianState;
+  postcodes: PostcodeStore['postcodes'];
+  assignmentMode: AssignmentMode;
+  onAssignment: (result: AssignmentResult) => void;
+  enabled: boolean;
+}
+
+function DrawControl({
+  selectedTerritory,
+  selectedState,
+  postcodes,
+  assignmentMode,
+  onAssignment,
+  enabled,
+}: DrawControlProps) {
+  const featureGroupRef = useRef<L.FeatureGroup>(null);
+
+  const handleCreated = (e: L.DrawEvents.Created) => {
+    if (!selectedTerritory) {
+      alert('Please select a territory first');
+      if (featureGroupRef.current) {
+        featureGroupRef.current.clearLayers();
+      }
+      return;
+    }
+
+    const layer = e.layer as L.Polygon;
+    const latLngs = layer.getLatLngs()[0] as L.LatLng[];
+
+    const postcodeIds = getPostcodesInPolygon(latLngs, postcodes);
+    const result = assignPostcodes(
+      postcodeIds,
+      selectedTerritory.name,
+      postcodes,
+      selectedState,
+      assignmentMode
+    );
+
+    onAssignment(result);
+
+    if (featureGroupRef.current) {
+      featureGroupRef.current.clearLayers();
+    }
+  };
+
+  if (!enabled) {
+    return null;
+  }
+
+  return (
+    <FeatureGroup ref={featureGroupRef}>
+      <EditControl
+        position="topright"
+        onCreated={handleCreated}
+        draw={{
+          rectangle: false,
+          circle: false,
+          circlemarker: false,
+          marker: false,
+          polyline: false,
+          polygon: {
+            allowIntersection: false,
+            shapeOptions: {
+              color: selectedTerritory?.color || '#666',
+              fillColor: selectedTerritory?.color || '#666',
+              fillOpacity: 0.2,
+            },
+          },
+        }}
+        edit={{
+          edit: false,
+          remove: false,
+        }}
+      />
+    </FeatureGroup>
+  );
+}
+
+// Analysis polygon draw control for view mode
+interface AnalysisDrawControlProps {
+  companies: CompanyData[];
+  onAnalysis: (result: AreaAnalysisResult | null) => void;
+  enabled: boolean;
+}
+
+function AnalysisDrawControl({
+  companies,
+  onAnalysis,
+  enabled,
+}: AnalysisDrawControlProps) {
+  const featureGroupRef = useRef<L.FeatureGroup>(null);
+
+  const handleCreated = (e: L.DrawEvents.Created) => {
+    const layer = e.layer as L.Polygon;
+    const latLngs = layer.getLatLngs()[0] as L.LatLng[];
+
+    const foundCompanies = getCompaniesInPolygon(latLngs, companies);
+    const result = analyzeArea(foundCompanies);
+
+    onAnalysis(result);
+
+    // Keep the polygon visible for reference (optional: could clear it)
+    // If you want to clear: featureGroupRef.current?.clearLayers();
+  };
+
+  const handleDeleted = () => {
+    onAnalysis(null);
+  };
+
+  if (!enabled) {
+    return null;
+  }
+
+  return (
+    <FeatureGroup ref={featureGroupRef}>
+      <EditControl
+        position="topright"
+        onCreated={handleCreated}
+        onDeleted={handleDeleted}
+        draw={{
+          rectangle: false,
+          circle: false,
+          circlemarker: false,
+          marker: false,
+          polyline: false,
+          polygon: {
+            allowIntersection: false,
+            shapeOptions: {
+              color: '#0ea5e9',
+              fillColor: '#0ea5e9',
+              fillOpacity: 0.1,
+              dashArray: '5, 5',
+            },
+          },
+        }}
+        edit={{
+          edit: false,
+          remove: true,
+        }}
+      />
+    </FeatureGroup>
+  );
+}
+
+export default function Map({
+  data,
+  territories,
+  selectedTerritory,
+  selectedState,
+  clickToAssign,
+  showUnassignedOnly,
+  showCompanies,
+  companies,
+  filteredCompanies,
+  mode,
+  assignmentMode,
+  showHeatMap,
+  onAssignment,
+  onClickAssign,
+  onAreaAnalysis,
+}: MapProps) {
+  const postcodeEntries = Object.values(data.postcodes);
+  const isViewMode = mode === 'view';
+
+  // Filter based on state and showUnassignedOnly
+  const isInSelectedState = (pc: PostcodeData) =>
+    selectedState === 'ALL' || pc.state === selectedState;
+
+  const visiblePostcodes = postcodeEntries.filter((pc) => {
+    if (!isInSelectedState(pc)) return false;
+    if (showUnassignedOnly && pc.territory) return false;
+    return true;
+  });
+
+  // Dimmed postcodes: either from other states, or assigned when showing unassigned only
+  const dimmedPostcodes = postcodeEntries.filter((pc) => {
+    // If from other state, show dimmed
+    if (!isInSelectedState(pc)) return true;
+    // If showing unassigned only and this is assigned, show dimmed
+    if (showUnassignedOnly && pc.territory) return true;
+    return false;
+  });
+
+  const handleMarkerClick = (postcode: PostcodeData) => {
+    if (clickToAssign && selectedTerritory) {
+      // Check if postcode is in selected state
+      if (selectedState !== 'ALL' && postcode.state !== selectedState) {
+        alert(`Cannot assign postcode from ${postcode.state} when ${selectedState} is selected`);
+        return;
+      }
+      onClickAssign(postcode);
+    }
+  };
+
+  const initialBounds = STATE_BOUNDS[selectedState];
+
+  return (
+    <MapContainer
+      center={initialBounds.center}
+      zoom={initialBounds.zoom}
+      style={{ height: '100%', width: '100%' }}
+    >
+      <TileLayer
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      />
+      <MapViewController selectedState={selectedState} />
+
+      {/* Territory assignment draw control in admin mode */}
+      <DrawControl
+        selectedTerritory={selectedTerritory}
+        selectedState={selectedState}
+        postcodes={data.postcodes}
+        assignmentMode={assignmentMode}
+        onAssignment={onAssignment}
+        enabled={!isViewMode}
+      />
+
+      {/* Analysis polygon draw control in view mode */}
+      <AnalysisDrawControl
+        companies={filteredCompanies}
+        onAnalysis={onAreaAnalysis}
+        enabled={isViewMode}
+      />
+
+      {/* Heat map layer in view mode */}
+      <HeatMapLayer
+        companies={filteredCompanies}
+        visible={isViewMode && showHeatMap}
+      />
+
+      {/* Only show postcodes in admin mode */}
+      {!isViewMode && (
+        <>
+          {/* Render dimmed postcodes (other states or assigned when showing unassigned) */}
+          {dimmedPostcodes.map((postcode) => {
+            const color = getTerritoryColor(postcode.territory, territories);
+            const isOtherState = !isInSelectedState(postcode);
+            return (
+              <CircleMarker
+                key={`dim-${postcode.postcode}-${postcode.state}`}
+                center={[postcode.lat, postcode.long]}
+                radius={isOtherState ? 2 : 3}
+                pathOptions={{
+                  fillColor: isOtherState ? '#d1d5db' : color,
+                  fillOpacity: isOtherState ? 0.1 : 0.15,
+                  color: isOtherState ? '#d1d5db' : color,
+                  weight: 0.5,
+                  opacity: isOtherState ? 0.2 : 0.3,
+                }}
+              />
+            );
+          })}
+
+          {/* Render main visible postcodes */}
+          {visiblePostcodes.map((postcode) => {
+            const color = getTerritoryColor(postcode.territory, territories);
+            const isClickable = clickToAssign && selectedTerritory;
+
+            return (
+              <CircleMarker
+                key={`${postcode.postcode}-${postcode.state}`}
+                center={[postcode.lat, postcode.long]}
+                radius={5}
+                pathOptions={{
+                  fillColor: color,
+                  fillOpacity: 0.7,
+                  color: color,
+                  weight: 1,
+                }}
+                eventHandlers={{
+                  click: () => handleMarkerClick(postcode),
+                }}
+              >
+                <Popup>
+                  <div className="text-sm">
+                    <p className="font-bold">
+                      Postcode: {postcode.postcode}{' '}
+                      <span className="text-gray-500">({postcode.state})</span>
+                    </p>
+                    <p>
+                      <span className="font-semibold">Localities:</span>{' '}
+                      {postcode.localities.slice(0, 3).join(', ')}
+                      {postcode.localities.length > 3 && '...'}
+                    </p>
+                    <p>
+                      <span className="font-semibold">SA3:</span> {postcode.sa3name || 'N/A'}
+                    </p>
+                    <p>
+                      <span className="font-semibold">SA4:</span> {postcode.sa4name || 'N/A'}
+                    </p>
+                    <p>
+                      <span className="font-semibold">Territory:</span>{' '}
+                      <span style={{ color: getTerritoryColor(postcode.territory, territories) }}>
+                        {postcode.territory || 'Unassigned'}
+                      </span>
+                    </p>
+                    {isClickable && (
+                      <p className="mt-2 text-xs text-blue-600">
+                        Click to assign to {selectedTerritory.name}
+                      </p>
+                    )}
+                  </div>
+                </Popup>
+              </CircleMarker>
+            );
+          })}
+        </>
+      )}
+
+      {/* Company layer - uses filtered companies in view mode, all companies in admin mode */}
+      <CompanyLayer
+        companies={isViewMode ? filteredCompanies : Object.values(companies)}
+        selectedState={selectedState}
+        visible={isViewMode || showCompanies}
+        isViewMode={isViewMode}
+      />
+    </MapContainer>
+  );
+}
