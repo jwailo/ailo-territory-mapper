@@ -29,15 +29,15 @@ export default function ModeToggle({
   };
 
   return (
-    <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
+    <div className="flex items-center gap-1 bg-white/10 p-1 rounded-lg">
       <button
         onClick={() => onModeChange('view')}
         className={`
           px-4 py-2 rounded-md text-sm font-medium transition-all duration-200
           ${
             mode === 'view'
-              ? 'bg-white text-blue-600 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              ? 'bg-[#EE0B4F] text-white shadow-sm'
+              : 'text-gray-300 hover:text-white hover:bg-white/10'
           }
         `}
       >
@@ -70,8 +70,8 @@ export default function ModeToggle({
           px-4 py-2 rounded-md text-sm font-medium transition-all duration-200
           ${
             mode === 'admin'
-              ? 'bg-white text-purple-600 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              ? 'bg-[#EE0B4F] text-white shadow-sm'
+              : 'text-gray-300 hover:text-white hover:bg-white/10'
           }
         `}
       >

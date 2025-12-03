@@ -90,14 +90,17 @@ export default function TerritoryManagementPanel({
   return (
     <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2">
+      <div className="bg-gradient-to-r from-[#1A1A2E] to-[#2D2D3A] px-4 py-2">
         <h3 className="text-white font-semibold text-sm">Manage Territories</h3>
       </div>
 
       <div className="p-4 space-y-4">
         {/* Error Message */}
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm">
+          <div className="bg-[#FEE2E8] border border-[#EF4444] border-l-4 text-[#EF4444] px-3 py-2 rounded text-sm flex items-center gap-2">
+            <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+            </svg>
             {error}
           </div>
         )}
@@ -113,7 +116,7 @@ export default function TerritoryManagementPanel({
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="Territory name..."
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#EE0B4F] focus:border-[#EE0B4F]"
               onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
             />
             <div className="relative">
@@ -127,7 +130,7 @@ export default function TerritoryManagementPanel({
             </div>
             <button
               onClick={handleCreate}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+              className="px-4 py-2 bg-[#EE0B4F] text-white rounded-md text-sm font-medium hover:bg-[#c4093f] transition-colors"
             >
               Add
             </button>
@@ -169,7 +172,7 @@ export default function TerritoryManagementPanel({
                   return (
                     <div
                       key={territory.id}
-                      className="flex items-center gap-2 p-2 bg-blue-50 border border-blue-200 rounded-md"
+                      className="flex items-center gap-2 p-2 bg-[#F5F5F7] border border-[#E5E5E5] rounded-md"
                     >
                       <input
                         type="color"
@@ -181,7 +184,7 @@ export default function TerritoryManagementPanel({
                         type="text"
                         value={editName}
                         onChange={(e) => setEditName(e.target.value)}
-                        className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        className="flex-1 px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-[#EE0B4F]"
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') handleSaveEdit();
                           if (e.key === 'Escape') handleCancelEdit();
@@ -190,7 +193,7 @@ export default function TerritoryManagementPanel({
                       />
                       <button
                         onClick={handleSaveEdit}
-                        className="px-2 py-1 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700"
+                        className="px-2 py-1 bg-[#22C55E] text-white rounded text-xs font-medium hover:bg-[#16A34A]"
                       >
                         Save
                       </button>
@@ -221,13 +224,13 @@ export default function TerritoryManagementPanel({
                     </span>
                     <button
                       onClick={() => handleStartEdit(territory)}
-                      className="px-2 py-1 text-blue-600 hover:bg-blue-100 rounded text-xs font-medium transition-colors"
+                      className="px-2 py-1 text-[#EE0B4F] hover:bg-[#FEE2E8] rounded text-xs font-medium transition-colors"
                     >
                       Edit
                     </button>
                     <button
                       onClick={() => handleDelete(territory.id, territory.name)}
-                      className="px-2 py-1 text-red-600 hover:bg-red-100 rounded text-xs font-medium transition-colors"
+                      className="px-2 py-1 text-[#EF4444] hover:bg-[#FEE2E8] rounded text-xs font-medium transition-colors"
                     >
                       Delete
                     </button>

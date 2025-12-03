@@ -18,6 +18,15 @@ import {
   applyLoadedState,
 } from './utils/territoryManagement';
 import {
+  loadTerritoriesFromSupabase,
+  loadPostcodeAssignmentsFromSupabase,
+  saveTerritoryToSupabase,
+  updateTerritoryInSupabase,
+  deleteTerritoryFromSupabase,
+  savePostcodeAssignmentsToSupabase,
+  clearPostcodeAssignmentsFromSupabase,
+} from './utils/supabaseData';
+import {
   isSiteAuthenticated,
   isAdminAuthenticated,
 } from './utils/auth';
@@ -100,6 +109,9 @@ export default function Home() {
   const [areaAnalysisResult, setAreaAnalysisResult] = useState<AreaAnalysisResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
+  // Collapsible panel state
+  const [filtersCollapsed, setFiltersCollapsed] = useState(false);
+
   // Check authentication on mount
   useEffect(() => {
     setSiteAuthenticated(isSiteAuthenticated());
@@ -166,17 +178,49 @@ export default function Home() {
     };
   }, [companyData, filteredCompanies, selectedState]);
 
-  // Load data and restore state from localStorage
+  // Load data from Supabase (with localStorage fallback for territories)
   useEffect(() => {
     loadPostcodes()
       .then(async (result) => {
-        // Try to load saved state from localStorage
-        const savedState = loadFromLocalStorage();
-        if (savedState) {
-          setTerritories(savedState.territories);
-          applyLoadedState(savedState, result.postcodes);
+        // Try to load territories and assignments from Supabase first
+        let loadedTerritories: Record<string, Territory> = {};
+        let postcodeAssignments: Record<string, string> = {};
+
+        try {
+          // Load from Supabase
+          loadedTerritories = await loadTerritoriesFromSupabase();
+          postcodeAssignments = await loadPostcodeAssignmentsFromSupabase();
+
+          // Apply assignments to postcodes
+          if (Object.keys(postcodeAssignments).length > 0) {
+            Object.values(result.postcodes).forEach((postcode) => {
+              const postcodeKey = postcode.postcode;
+              const territoryId = postcodeAssignments[postcodeKey];
+              if (territoryId) {
+                const territory = loadedTerritories[territoryId];
+                if (territory) {
+                  postcode.territory = territory.name;
+                }
+              }
+            });
+          }
+
+          console.log(`Loaded ${Object.keys(loadedTerritories).length} territories from Supabase`);
+        } catch (err) {
+          console.error('Error loading from Supabase, falling back to localStorage:', err);
         }
 
+        // Fall back to localStorage if Supabase is empty
+        if (Object.keys(loadedTerritories).length === 0) {
+          const savedState = loadFromLocalStorage();
+          if (savedState) {
+            loadedTerritories = savedState.territories;
+            applyLoadedState(savedState, result.postcodes);
+            console.log('Loaded territories from localStorage');
+          }
+        }
+
+        setTerritories(loadedTerritories);
         setData(result);
 
         // Try to load companies (will use postcode lookup for fallback)
@@ -234,16 +278,47 @@ export default function Home() {
   }, [selectedState, territories, updateStats]);
 
   const handleAssignment = useCallback(
-    (result: AssignmentResult) => {
+    async (result: AssignmentResult) => {
       setLastResult(result);
       updateStats();
       setTimeout(() => setLastResult(null), 5000);
+
+      // Save assignments to Supabase
+      if (selectedTerritory && data) {
+        // Collect all postcodes that were assigned or reassigned
+        const assignedPostcodes = [
+          ...result.assigned,
+          ...result.reassigned.map((r) => r.postcode),
+        ];
+
+        if (assignedPostcodes.length > 0) {
+          // Group postcodes by state for Supabase
+          const byState: Record<string, string[]> = {};
+          for (const postcodeId of assignedPostcodes) {
+            const postcodeData = data.postcodes[postcodeId];
+            if (postcodeData) {
+              const state = postcodeData.state;
+              if (!byState[state]) byState[state] = [];
+              byState[state].push(postcodeId);
+            }
+          }
+
+          // Save each state group to Supabase
+          for (const [state, postcodes] of Object.entries(byState)) {
+            await savePostcodeAssignmentsToSupabase(
+              postcodes,
+              selectedTerritory.id,
+              state
+            );
+          }
+        }
+      }
     },
-    [updateStats]
+    [updateStats, selectedTerritory, data]
   );
 
   const handleClickAssign = useCallback(
-    (postcode: PostcodeData) => {
+    async (postcode: PostcodeData) => {
       if (!selectedTerritory || !data) return;
 
       // Check if already assigned to a different territory
@@ -257,6 +332,13 @@ export default function Home() {
       // Assign the postcode
       postcode.territory = selectedTerritory.name;
       updateStats();
+
+      // Save to Supabase
+      await savePostcodeAssignmentsToSupabase(
+        [postcode.postcode],
+        selectedTerritory.id,
+        postcode.state
+      );
 
       setLastResult({
         assigned: [postcode.postcode],
@@ -276,23 +358,36 @@ export default function Home() {
   );
 
   const handleClearTerritory = useCallback(
-    (territoryName: string, count: number) => {
+    async (territoryName: string, count: number) => {
       updateStats();
       setLastResult({
         assigned: [],
         skipped: [],
         reassigned: [],
       });
+
+      // Find territory ID by name and clear from Supabase
+      const territory = Object.values(territories).find((t) => t.name === territoryName);
+      if (territory) {
+        await clearPostcodeAssignmentsFromSupabase(
+          territory.id,
+          selectedState !== 'ALL' ? selectedState : undefined
+        );
+      }
+
       alert(`Cleared ${count} postcodes from ${territoryName}`);
     },
-    [updateStats]
+    [updateStats, territories, selectedState]
   );
 
   const handleCreateTerritory = useCallback(
-    (name: string, color: string) => {
+    async (name: string, color: string) => {
       try {
         const result = createTerritory(name, territories, color);
         setTerritories(result.territories);
+
+        // Save to Supabase
+        await saveTerritoryToSupabase(result.newTerritory);
       } catch (err) {
         alert((err as Error).message);
       }
@@ -301,7 +396,7 @@ export default function Home() {
   );
 
   const handleUpdateTerritory = useCallback(
-    (id: string, updates: { name?: string; color?: string }) => {
+    async (id: string, updates: { name?: string; color?: string }) => {
       if (!data) return;
       try {
         const result = updateTerritory(id, updates, territories, data.postcodes);
@@ -311,6 +406,9 @@ export default function Home() {
           setSelectedTerritory(result.territories[id]);
         }
         updateStats();
+
+        // Update in Supabase
+        await updateTerritoryInSupabase(result.territories[id]);
       } catch (err) {
         alert((err as Error).message);
       }
@@ -319,7 +417,7 @@ export default function Home() {
   );
 
   const handleDeleteTerritory = useCallback(
-    (id: string) => {
+    async (id: string) => {
       if (!data) return;
       try {
         const result = deleteTerritory(id, territories, data.postcodes);
@@ -329,6 +427,10 @@ export default function Home() {
           setSelectedTerritory(null);
         }
         updateStats();
+
+        // Delete from Supabase (this also clears postcode assignments)
+        await deleteTerritoryFromSupabase(id);
+
         if (result.clearedCount > 0) {
           alert(`Territory deleted. Cleared ${result.clearedCount} postcode assignments.`);
         }
@@ -340,11 +442,40 @@ export default function Home() {
   );
 
   const handleImportState = useCallback(
-    (savedState: SavedTerritoryState) => {
+    async (savedState: SavedTerritoryState) => {
       if (!data) return;
       setTerritories(savedState.territories);
       applyLoadedState(savedState, data.postcodes);
       updateStats();
+
+      // Sync imported state to Supabase
+      // Save all territories
+      for (const territory of Object.values(savedState.territories)) {
+        await saveTerritoryToSupabase(territory);
+      }
+
+      // Save all postcode assignments grouped by territory and state
+      const assignmentsByTerritoryAndState: Record<string, Record<string, string[]>> = {};
+      for (const [postcodeId, territoryId] of Object.entries(savedState.postcodeAssignments)) {
+        const postcodeData = data.postcodes[postcodeId];
+        if (postcodeData) {
+          if (!assignmentsByTerritoryAndState[territoryId]) {
+            assignmentsByTerritoryAndState[territoryId] = {};
+          }
+          const state = postcodeData.state;
+          if (!assignmentsByTerritoryAndState[territoryId][state]) {
+            assignmentsByTerritoryAndState[territoryId][state] = [];
+          }
+          assignmentsByTerritoryAndState[territoryId][state].push(postcodeId);
+        }
+      }
+
+      // Save grouped assignments
+      for (const [territoryId, byState] of Object.entries(assignmentsByTerritoryAndState)) {
+        for (const [state, postcodes] of Object.entries(byState)) {
+          await savePostcodeAssignmentsToSupabase(postcodes, territoryId, state);
+        }
+      }
     },
     [data, updateStats]
   );
@@ -391,7 +522,7 @@ export default function Home() {
   // Show nothing while checking auth status
   if (!authChecked) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-gradient-to-br from-blue-900 via-blue-800 to-cyan-900">
+      <div className="h-screen w-screen flex items-center justify-center bg-gradient-to-br from-[#1A1A2E] to-[#2D2D3A]">
         <p className="text-white">Loading...</p>
       </div>
     );
@@ -438,8 +569,8 @@ export default function Home() {
       />
 
       <div className="h-screen w-screen flex flex-col">
-        <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-900">Australian Postcode Territory Manager</h1>
+        <header className="bg-[#1A1A2E] px-4 py-3 flex items-center justify-between">
+        <h1 className="text-xl font-semibold text-[#EE0B4F]">Australian Postcode Territory Manager</h1>
         <ModeToggle
           mode={appMode}
           isAdminAuthenticated={adminAuthenticated}
@@ -448,106 +579,146 @@ export default function Home() {
         />
       </header>
 
-      <div className="p-4 bg-gray-50 border-b border-gray-200 space-y-4">
-        {/* State selector is always visible */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-          <StateSelector selectedState={selectedState} onSelect={setSelectedState} />
-
-          {/* View Mode: Show filters panel and analysis panel */}
-          {isViewMode && companyData && (
-            <>
-              <div className="lg:col-span-2">
-                <ViewModeFilters
-                  companies={companyData.companies}
-                  filters={companyFilters}
-                  onFiltersChange={setCompanyFilters}
-                  filteredCount={filteredStats.filteredCount}
-                  totalCount={filteredStats.totalCount}
-                  filteredPUM={filteredStats.filteredPUM}
-                />
-              </div>
-              <div className="lg:col-span-1 space-y-3">
-                {/* Heat Map Toggle */}
-                <div className="bg-white border border-gray-200 rounded-lg p-3">
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={showHeatMap}
-                      onChange={(e) => setShowHeatMap(e.target.checked)}
-                      className="h-5 w-5 text-cyan-600 focus:ring-cyan-500 border-gray-300 rounded"
-                    />
-                    <div>
-                      <span className="text-sm font-medium text-gray-800">Show PUM Heat Map</span>
-                      <p className="text-xs text-gray-500">Visualize company density by PUM</p>
-                    </div>
-                  </label>
-                </div>
-                {/* Area Analysis Panel */}
-                <AreaAnalysisPanel
-                  result={areaAnalysisResult}
-                  isAnalyzing={isAnalyzing}
-                  onClear={() => setAreaAnalysisResult(null)}
-                />
-              </div>
-            </>
-          )}
-
-          {/* Admin Mode: Show territory controls */}
-          {!isViewMode && (
-            <>
-              <TerritorySelector
-                territories={territories}
-                selectedTerritory={selectedTerritory}
-                onSelect={setSelectedTerritory}
+      {/* Collapsible Control Panel */}
+      <div className="bg-gray-50 border-b border-gray-200">
+        {/* Toggle Header */}
+        <button
+          onClick={() => setFiltersCollapsed(!filtersCollapsed)}
+          className="w-full px-4 py-2 flex items-center justify-between bg-gradient-to-r from-[#EE0B4F] to-[#c4093f] text-white hover:brightness-110 transition-all"
+        >
+          <span className="font-semibold text-sm">
+            {isViewMode ? 'Filters & Controls' : 'Territory Controls'}
+          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs opacity-80">
+              {filtersCollapsed ? 'Click to expand' : 'Click to collapse'}
+            </span>
+            <svg
+              className={`w-4 h-4 transition-transform duration-200 ${
+                filtersCollapsed ? '' : 'rotate-180'
+              }`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
               />
-              <div className="lg:col-span-2">
-                <TerritoryManagementPanel
-                  territories={territories}
-                  territoryCounts={territoryCounts}
-                  onCreateTerritory={handleCreateTerritory}
-                  onUpdateTerritory={handleUpdateTerritory}
-                  onDeleteTerritory={handleDeleteTerritory}
-                />
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Admin Mode: Show toolbar and assignment mode */}
-        {!isViewMode && (
-          <div className="flex gap-4 flex-wrap">
-            <div className="flex-1 min-w-0">
-              <Toolbar
-                data={data}
-                territories={territories}
-                selectedTerritory={selectedTerritory}
-                selectedState={selectedState}
-                clickToAssign={clickToAssign}
-                showUnassignedOnly={showUnassignedOnly}
-                showCompanies={showCompanies}
-                companies={companyData?.companies || {}}
-                companyMissingCount={companyStats.missingCoords}
-                onClickToAssignToggle={() => setClickToAssign(!clickToAssign)}
-                onShowUnassignedOnlyToggle={() => setShowUnassignedOnly(!showUnassignedOnly)}
-                onShowCompaniesToggle={() => setShowCompanies(!showCompanies)}
-                onClearTerritory={handleClearTerritory}
-                onImportState={handleImportState}
-              />
-            </div>
-            <div className="w-72 flex-shrink-0">
-              <AssignmentModeSelector
-                mode={assignmentMode}
-                onModeChange={setAssignmentMode}
-              />
-            </div>
+            </svg>
           </div>
-        )}
+        </button>
+
+        {/* Collapsible Content */}
+        <div
+          className={`transition-all duration-300 ease-in-out overflow-hidden ${
+            filtersCollapsed ? 'max-h-0' : 'max-h-[1000px]'
+          }`}
+        >
+          <div className="p-4 space-y-4">
+            {/* State selector is always visible */}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+              <StateSelector selectedState={selectedState} onSelect={setSelectedState} />
+
+              {/* View Mode: Show filters panel and analysis panel */}
+              {isViewMode && companyData && (
+                <>
+                  <div className="lg:col-span-2">
+                    <ViewModeFilters
+                      companies={companyData.companies}
+                      filters={companyFilters}
+                      onFiltersChange={setCompanyFilters}
+                      filteredCount={filteredStats.filteredCount}
+                      totalCount={filteredStats.totalCount}
+                      filteredPUM={filteredStats.filteredPUM}
+                    />
+                  </div>
+                  <div className="lg:col-span-1 space-y-3">
+                    {/* Heat Map Toggle */}
+                    <div className="bg-white border border-gray-200 rounded-lg p-3">
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={showHeatMap}
+                          onChange={(e) => setShowHeatMap(e.target.checked)}
+                          className="h-5 w-5 text-[#EE0B4F] focus:ring-[#EE0B4F] border-gray-300 rounded accent-[#EE0B4F]"
+                        />
+                        <div>
+                          <span className="text-sm font-medium text-gray-800">Show PUM Heat Map</span>
+                          <p className="text-xs text-gray-500">Visualize company density by PUM</p>
+                        </div>
+                      </label>
+                    </div>
+                    {/* Area Analysis Panel */}
+                    <AreaAnalysisPanel
+                      result={areaAnalysisResult}
+                      isAnalyzing={isAnalyzing}
+                      onClear={() => setAreaAnalysisResult(null)}
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* Admin Mode: Show territory controls */}
+              {!isViewMode && (
+                <>
+                  <TerritorySelector
+                    territories={territories}
+                    selectedTerritory={selectedTerritory}
+                    onSelect={setSelectedTerritory}
+                  />
+                  <div className="lg:col-span-2">
+                    <TerritoryManagementPanel
+                      territories={territories}
+                      territoryCounts={territoryCounts}
+                      onCreateTerritory={handleCreateTerritory}
+                      onUpdateTerritory={handleUpdateTerritory}
+                      onDeleteTerritory={handleDeleteTerritory}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Admin Mode: Show toolbar and assignment mode */}
+            {!isViewMode && (
+              <div className="flex gap-4 flex-wrap">
+                <div className="flex-1 min-w-0">
+                  <Toolbar
+                    data={data}
+                    territories={territories}
+                    selectedTerritory={selectedTerritory}
+                    selectedState={selectedState}
+                    clickToAssign={clickToAssign}
+                    showUnassignedOnly={showUnassignedOnly}
+                    showCompanies={showCompanies}
+                    companies={companyData?.companies || {}}
+                    companyMissingCount={companyStats.missingCoords}
+                    onClickToAssignToggle={() => setClickToAssign(!clickToAssign)}
+                    onShowUnassignedOnlyToggle={() => setShowUnassignedOnly(!showUnassignedOnly)}
+                    onShowCompaniesToggle={() => setShowCompanies(!showCompanies)}
+                    onClearTerritory={handleClearTerritory}
+                    onImportState={handleImportState}
+                  />
+                </div>
+                <div className="w-72 flex-shrink-0">
+                  <AssignmentModeSelector
+                    mode={assignmentMode}
+                    onModeChange={setAssignmentMode}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Assignment result notification (admin mode only) */}
       {!isViewMode && lastResult && (lastResult.assigned.length > 0 || lastResult.skipped.length > 0 || lastResult.reassigned.length > 0 || (lastResult.outsideState?.length || 0) > 0) && (
-        <div className="px-4 py-2 bg-blue-50 border-b border-blue-200">
-          <p className="text-sm text-blue-800">
+        <div className="px-4 py-2 bg-red-50 border-b border-[#EE0B4F]/30">
+          <p className="text-sm text-[#EE0B4F]">
             {lastResult.assigned.length > 0 && (
               <span className="font-semibold">
                 Assigned {lastResult.assigned.length} postcode

@@ -7,6 +7,7 @@ import {
   CoordSource,
   PostcodeData,
 } from '../types';
+import { loadCompaniesFromSupabase } from './supabaseData';
 
 const HUBSPOT_ACCOUNT_ID = '49213690';
 
@@ -38,7 +39,8 @@ function buildHubSpotUrl(recordId: string): string {
   return `https://app.hubspot.com/contacts/${HUBSPOT_ACCOUNT_ID}/company/${recordId}`;
 }
 
-export async function loadCompanies(
+// Load companies from CSV (fallback)
+async function loadCompaniesFromCSV(
   postcodes: Record<string, PostcodeData>
 ): Promise<CompanyStore> {
   const response = await fetch('/hubspot_companies.csv');
@@ -138,6 +140,26 @@ export async function loadCompanies(
       error: (error: Error) => reject(error),
     });
   });
+}
+
+// Main load function - tries Supabase first, falls back to CSV
+export async function loadCompanies(
+  postcodes: Record<string, PostcodeData>
+): Promise<CompanyStore> {
+  // Try Supabase first
+  try {
+    const supabaseResult = await loadCompaniesFromSupabase();
+    if (supabaseResult && supabaseResult.stats.total > 0) {
+      console.log(`Loaded ${supabaseResult.stats.total} companies from Supabase`);
+      return supabaseResult;
+    }
+  } catch (error) {
+    console.error('Error loading from Supabase, falling back to CSV:', error);
+  }
+
+  // Fall back to CSV
+  console.log('Loading companies from CSV (Supabase empty or unavailable)');
+  return loadCompaniesFromCSV(postcodes);
 }
 
 // Get companies with missing coordinates for reporting

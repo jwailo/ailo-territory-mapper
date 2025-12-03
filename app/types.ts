@@ -230,8 +230,14 @@ export const DEFAULT_COMPANY_FILTERS: CompanyFilters = {
   search: '',
 };
 
-// Check if a company is an Ailo customer based on phase
+// Check if a company is an Ailo customer based on lifecycle stage and phase
 export function isAiloCustomer(company: CompanyData): boolean {
+  // If lifecycle stage is 'Customer', they're always an Ailo customer
+  if (company.lifecycleStage === 'Customer') {
+    return true;
+  }
+
+  // Otherwise check the phase field
   const phase = company.phase?.trim();
   if (!phase) return false;
   const excludedPhases = ['Churned', 'Sold Business'];

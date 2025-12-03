@@ -24,23 +24,23 @@ export default function StatsPanel({
   );
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+    <div className="bg-[#F5F5F7] border border-[#E5E5E5] rounded-xl p-4 shadow-sm">
       <div className="flex flex-wrap items-center justify-center gap-4 text-sm">
-        <div className="flex items-center gap-2 bg-gray-100 px-3 py-1 rounded-full">
-          <span className="font-semibold text-gray-700">State:</span>
-          <span className="text-gray-900 font-medium">{selectedState}</span>
+        <div className="flex items-center gap-2 bg-[#1A1A2E] px-3 py-1 rounded-full">
+          <span className="font-medium text-white">State:</span>
+          <span className="text-[#EE0B4F] font-semibold">{selectedState}</span>
         </div>
-        <div className="h-4 w-px bg-gray-300" />
+        <div className="h-4 w-px bg-[#E5E5E5]" />
         <div className="flex items-center gap-2">
-          <span className="font-semibold text-gray-700">Total:</span>
-          <span className="text-gray-900">{total.toLocaleString()}</span>
+          <span className="font-medium text-[#6B7280]">Total:</span>
+          <span className="text-[#1A1A2E] font-semibold">{total.toLocaleString()}</span>
         </div>
-        <div className="h-4 w-px bg-gray-300" />
+        <div className="h-4 w-px bg-[#E5E5E5]" />
         <div className="flex items-center gap-2">
-          <span className="font-semibold text-gray-500">Unassigned:</span>
-          <span className="text-gray-900">{unassigned.toLocaleString()}</span>
+          <span className="font-medium text-[#6B7280]">Unassigned:</span>
+          <span className="text-[#1A1A2E] font-semibold">{unassigned.toLocaleString()}</span>
         </div>
-        {territoryList.length > 0 && <div className="h-4 w-px bg-gray-300" />}
+        {territoryList.length > 0 && <div className="h-4 w-px bg-[#E5E5E5]" />}
         {territoryList.map((territory) => {
           const count = territoryCounts[territory.name] || 0;
           return (
@@ -49,10 +49,10 @@ export default function StatsPanel({
                 className="w-3 h-3 rounded-full"
                 style={{ backgroundColor: territory.color }}
               />
-              <span className="font-semibold" style={{ color: territory.color }}>
+              <span className="font-medium" style={{ color: territory.color }}>
                 {territory.name}:
               </span>
-              <span className="text-gray-900">{count.toLocaleString()}</span>
+              <span className="text-[#1A1A2E] font-semibold">{count.toLocaleString()}</span>
             </div>
           );
         })}

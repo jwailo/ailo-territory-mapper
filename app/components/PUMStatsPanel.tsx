@@ -26,9 +26,9 @@ export default function PUMStatsPanel({
   return (
     <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
       {/* Header */}
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-2">
+      <div className="bg-gradient-to-r from-[#1A1A2E] to-[#2D2D3A] px-4 py-2">
         <h3 className="text-white font-semibold text-sm">
-          Territory PUM Summary ({stateLabel})
+          Territory PUM Summary <span className="text-[#EE0B4F]">({stateLabel})</span>
         </h3>
       </div>
 

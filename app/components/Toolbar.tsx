@@ -126,7 +126,7 @@ export default function Toolbar({
           onClick={onClickToAssignToggle}
           className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
             clickToAssign
-              ? 'bg-blue-600 text-white'
+              ? 'bg-[#EE0B4F] text-white'
               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
           }`}
         >
@@ -137,7 +137,7 @@ export default function Toolbar({
           onClick={onShowUnassignedOnlyToggle}
           className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
             showUnassignedOnly
-              ? 'bg-amber-600 text-white'
+              ? 'bg-[#F59E0B] text-white'
               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
           }`}
         >
@@ -148,7 +148,7 @@ export default function Toolbar({
           onClick={onShowCompaniesToggle}
           className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
             showCompanies
-              ? 'bg-orange-600 text-white'
+              ? 'bg-[#1A1A2E] text-white'
               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
           }`}
         >
@@ -160,7 +160,7 @@ export default function Toolbar({
           disabled={!selectedTerritory}
           className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
             selectedTerritory
-              ? 'bg-red-100 text-red-700 hover:bg-red-200'
+              ? 'bg-[#FEE2E8] text-[#EF4444] hover:bg-red-200'
               : 'bg-gray-100 text-gray-400 cursor-not-allowed'
           }`}
         >
@@ -178,7 +178,7 @@ export default function Toolbar({
             disabled={!selectedTerritory}
             className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
               selectedTerritory
-                ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                ? 'bg-[#DCFCE7] text-[#16A34A] hover:bg-green-200'
                 : 'bg-gray-100 text-gray-400 cursor-not-allowed'
             }`}
           >
@@ -190,7 +190,7 @@ export default function Toolbar({
             disabled={!selectedTerritory}
             className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
               selectedTerritory
-                ? 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                ? 'bg-[#FEE2E8] text-[#EE0B4F] hover:bg-red-100'
                 : 'bg-gray-100 text-gray-400 cursor-not-allowed'
             }`}
           >
@@ -199,7 +199,7 @@ export default function Toolbar({
 
           <button
             onClick={() => exportAllTerritoriesCSV(data.postcodes)}
-            className="px-3 py-1.5 rounded text-xs font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
+            className="px-3 py-1.5 rounded text-xs font-medium bg-[#F5F5F7] text-[#1A1A2E] hover:bg-gray-200 transition-colors"
           >
             Export All Territories (CSV)
           </button>
@@ -214,7 +214,7 @@ export default function Toolbar({
           {companyMissingCount > 0 && (
             <button
               onClick={() => exportMissingCoordsCSV(companies)}
-              className="px-3 py-1.5 rounded text-xs font-medium bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
+              className="px-3 py-1.5 rounded text-xs font-medium bg-[#FEE2E8] text-[#EF4444] hover:bg-red-200 transition-colors"
             >
               Export Missing Coords ({companyMissingCount})
             </button>
@@ -228,7 +228,7 @@ export default function Toolbar({
         <div className="flex flex-wrap gap-2">
           <button
             onClick={handleExportState}
-            className="px-3 py-1.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition-colors"
+            className="px-3 py-1.5 rounded text-xs font-medium bg-[#F5F5F7] text-[#1A1A2E] hover:bg-gray-200 transition-colors"
           >
             Export State (JSON)
           </button>

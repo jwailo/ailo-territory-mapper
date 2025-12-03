@@ -7,6 +7,7 @@ import {
   getLifecycleColor,
   isAiloCustomer,
 } from '../types';
+import OwnerAvatar from './OwnerAvatar';
 
 interface CompanyLayerProps {
   companies: CompanyData[];
@@ -83,8 +84,16 @@ export default function CompanyLayer({
             }}
           >
             <Popup>
-              <div className="text-sm min-w-[220px]">
-                <p className="font-bold text-base mb-1">{company.name}</p>
+              <div className="text-sm min-w-[240px] relative">
+                {/* Owner avatar in top right */}
+                {company.owner && (
+                  <div className="absolute -top-1 -right-1">
+                    <OwnerAvatar ownerName={company.owner} size="lg" />
+                  </div>
+                )}
+                <div className="pr-14">
+                  <p className="font-bold text-base mb-1">{company.name}</p>
+                </div>
                 <div className="space-y-1 text-gray-700">
                   {company.address && (
                     <p>

@@ -99,7 +99,7 @@ export default function ViewModeFilters({
   return (
     <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-cyan-600 px-4 py-2 flex items-center justify-between">
+      <div className="bg-gradient-to-r from-[#EE0B4F] to-[#c4093f] px-4 py-2 flex items-center justify-between">
         <h3 className="text-white font-semibold text-sm">Company Filters</h3>
         {hasActiveFilters && (
           <button
@@ -113,8 +113,8 @@ export default function ViewModeFilters({
 
       <div className="p-4 space-y-4">
         {/* Results Summary */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-          <p className="text-sm text-blue-800">
+        <div className="bg-red-50 border border-[#EE0B4F]/30 rounded-lg px-3 py-2">
+          <p className="text-sm text-[#EE0B4F]">
             Showing{' '}
             <span className="font-bold">{filteredCount.toLocaleString()}</span>{' '}
             of {totalCount.toLocaleString()} companies |{' '}
@@ -132,7 +132,7 @@ export default function ViewModeFilters({
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Search by name..."
-            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#EE0B4F] focus:border-[#EE0B4F]"
           />
         </div>
 
@@ -150,7 +150,7 @@ export default function ViewModeFilters({
                   onClick={() => handleOwnerToggle(owner)}
                   className={`px-2 py-1 text-xs rounded-full transition-colors ${
                     isSelected
-                      ? 'bg-blue-600 text-white'
+                      ? 'bg-[#EE0B4F] text-white'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
@@ -228,7 +228,7 @@ export default function ViewModeFilters({
               value={filters.minPUM ?? ''}
               onChange={(e) => handleMinPUMChange(e.target.value)}
               placeholder="Min"
-              className="w-24 px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-24 px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#EE0B4F] focus:border-[#EE0B4F]"
             />
             <span className="text-gray-400">to</span>
             <input
@@ -236,7 +236,7 @@ export default function ViewModeFilters({
               value={filters.maxPUM ?? ''}
               onChange={(e) => handleMaxPUMChange(e.target.value)}
               placeholder="Max"
-              className="w-24 px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-24 px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#EE0B4F] focus:border-[#EE0B4F]"
             />
           </div>
         </div>
