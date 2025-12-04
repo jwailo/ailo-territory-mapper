@@ -30,6 +30,7 @@ import CompanyLayer from './CompanyLayer';
 import HeatMapLayer from './HeatMapLayer';
 import ComplianceZoneLayer from './ComplianceZoneLayer';
 import ComplianceDrawControl from './ComplianceDrawControl';
+import TerritoryPolygonLayer from './TerritoryPolygonLayer';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
@@ -372,6 +373,13 @@ export default function Map({
           onZoneCreated={onComplianceZoneCreated}
         />
       )}
+
+      {/* Territory polygon layer - render filled polygons for each territory */}
+      <TerritoryPolygonLayer
+        postcodes={data.postcodes}
+        territories={territories}
+        visible={!isViewMode}
+      />
 
       {/* Only show postcodes in admin mode */}
       {!isViewMode && (

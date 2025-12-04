@@ -28,6 +28,7 @@ import {
   loadComplianceZonesFromSupabase,
   saveComplianceZoneToSupabase,
   deleteComplianceZoneFromSupabase,
+  cleanupCorruptedPostcodeAssignments,
 } from './utils/supabaseData';
 import {
   isSiteAuthenticated,
@@ -197,22 +198,54 @@ export default function Home() {
         let postcodeAssignments: Record<string, string> = {};
 
         try {
+          // Run cleanup for corrupted postcode assignments (one-time fix)
+          const cleanupResult = await cleanupCorruptedPostcodeAssignments();
+          if (cleanupResult.fixed > 0) {
+            console.log(`Cleanup: Fixed ${cleanupResult.fixed} corrupted postcode assignments`);
+          }
+
           // Load from Supabase
           loadedTerritories = await loadTerritoriesFromSupabase();
           postcodeAssignments = await loadPostcodeAssignmentsFromSupabase();
 
           // Apply assignments to postcodes
           if (Object.keys(postcodeAssignments).length > 0) {
+            let appliedCount = 0;
+            let noMatchCount = 0;
+            let noTerritoryCount = 0;
+
+            // Log first few assignment keys to debug format
+            const assignmentKeys = Object.keys(postcodeAssignments);
+            console.log('Sample assignment keys:', JSON.stringify(assignmentKeys.slice(0, 10)));
+
+            // Log first few postcode keys to compare format
+            const postcodeKeys = Object.values(result.postcodes).slice(0, 10).map(p => `${p.postcode}-${p.state}`);
+            console.log('Sample postcode keys:', JSON.stringify(postcodeKeys));
+
+            // Find any matching key to debug
+            const firstAssignmentKey = assignmentKeys[0];
+            console.log('First assignment key details:', JSON.stringify({
+              key: firstAssignmentKey,
+              territoryId: postcodeAssignments[firstAssignmentKey]
+            }));
+
             Object.values(result.postcodes).forEach((postcode) => {
-              const postcodeKey = postcode.postcode;
+              // Use postcode-state as composite key to match assignment lookup
+              const postcodeKey = `${postcode.postcode}-${postcode.state}`;
               const territoryId = postcodeAssignments[postcodeKey];
               if (territoryId) {
                 const territory = loadedTerritories[territoryId];
                 if (territory) {
                   postcode.territory = territory.name;
+                  appliedCount++;
+                } else {
+                  noTerritoryCount++;
                 }
+              } else {
+                noMatchCount++;
               }
             });
+            console.log(`Applied ${appliedCount} postcode assignments from Supabase (${noMatchCount} no match, ${noTerritoryCount} no territory)`);
           }
 
           console.log(`Loaded ${Object.keys(loadedTerritories).length} territories from Supabase`);

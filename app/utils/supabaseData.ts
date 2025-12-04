@@ -31,18 +31,46 @@ function normalizeLifecycleStage(stage: string | null): LifecycleStage {
   }
 }
 
+// Load companies from Supabase using pagination to bypass row limits
+async function fetchAllCompanies(): Promise<DbCompany[]> {
+  const allData: DbCompany[] = [];
+  const pageSize = 1000;
+  let page = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    const from = page * pageSize;
+    const to = from + pageSize - 1;
+
+    const { data, error } = await supabase
+      .from('companies')
+      .select('*')
+      .range(from, to);
+
+    if (error) {
+      console.error(`Error fetching companies page ${page}:`, error);
+      break;
+    }
+
+    if (data && data.length > 0) {
+      allData.push(...(data as DbCompany[]));
+      console.log(`Fetched companies ${from}-${from + data.length - 1} (${allData.length} total)`);
+      hasMore = data.length === pageSize;
+      page++;
+    } else {
+      hasMore = false;
+    }
+  }
+
+  return allData;
+}
+
 // Load companies from Supabase
 export async function loadCompaniesFromSupabase(): Promise<CompanyStore | null> {
-  // Supabase defaults to 1000 rows, so we need to set a higher limit
-  const { data, error } = await supabase
-    .from('companies')
-    .select('*')
-    .limit(20000);
+  // Use pagination to fetch all companies (bypasses Supabase row limits)
+  const data = await fetchAllCompanies();
 
-  if (error) {
-    console.error('Error loading companies from Supabase:', error);
-    return null;
-  }
+  console.log('Supabase companies loaded:', data.length);
 
   if (!data || data.length === 0) {
     console.log('No companies in Supabase, will fall back to CSV');
@@ -66,7 +94,7 @@ export async function loadCompaniesFromSupabase(): Promise<CompanyStore | null> 
     } as Record<LifecycleStage, number>,
   };
 
-  for (const row of data as DbCompany[]) {
+  for (const row of data) {
     const lifecycleStage = normalizeLifecycleStage(row.lifecycle_stage);
     const lat = row.latitude;
     const long = row.longitude;
@@ -126,23 +154,49 @@ export async function loadTerritoriesFromSupabase(): Promise<Record<string, Terr
   return territories;
 }
 
-// Load postcode assignments from Supabase
+// Load postcode assignments from Supabase with pagination
 export async function loadPostcodeAssignmentsFromSupabase(): Promise<Record<string, string>> {
-  const { data, error } = await supabase
-    .from('postcode_assignments')
-    .select('*');
+  console.log('loadPostcodeAssignmentsFromSupabase: Starting...');
 
-  if (error) {
-    console.error('Error loading postcode assignments from Supabase:', error);
-    return {};
+  const allData: DbPostcodeAssignment[] = [];
+  const pageSize = 1000;
+  let page = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    const from = page * pageSize;
+    const to = from + pageSize - 1;
+
+    const { data, error } = await supabase
+      .from('postcode_assignments')
+      .select('*')
+      .range(from, to);
+
+    if (error) {
+      console.error(`Error fetching postcode assignments page ${page}:`, error);
+      break;
+    }
+
+    if (data && data.length > 0) {
+      allData.push(...(data as DbPostcodeAssignment[]));
+      console.log(`Fetched postcode assignments ${from}-${from + data.length - 1} (${allData.length} total)`);
+      hasMore = data.length === pageSize;
+      page++;
+    } else {
+      hasMore = false;
+    }
   }
+
+  console.log('loadPostcodeAssignmentsFromSupabase: Raw data from Supabase:', allData.length, 'records');
 
   const assignments: Record<string, string> = {};
-  for (const a of (data || []) as DbPostcodeAssignment[]) {
-    // Key by postcode, value is territory_id
-    assignments[a.postcode] = a.territory_id;
+  for (const a of allData) {
+    // Key by postcode-state to match the postcodes store format
+    const key = `${a.postcode}-${a.state}`;
+    assignments[key] = a.territory_id;
   }
 
+  console.log('loadPostcodeAssignmentsFromSupabase: Returning', Object.keys(assignments).length, 'assignments');
   return assignments;
 }
 
@@ -214,23 +268,33 @@ export async function savePostcodeAssignmentsToSupabase(
   territoryId: string,
   state: string
 ): Promise<boolean> {
+  console.log('savePostcodeAssignmentsToSupabase: Saving', postcodes.length, 'postcodes to territory', territoryId, 'state', state);
   if (postcodes.length === 0) return true;
 
-  const records = postcodes.map((postcode) => ({
-    postcode,
-    territory_id: territoryId,
-    state,
-    assigned_at: new Date().toISOString(),
-  }));
+  const records = postcodes.map((postcodeKey) => {
+    // postcodeKey might be in format "2611-ACT" or just "2611"
+    // Extract just the postcode number (everything before the first dash, or the whole string)
+    const postcode = postcodeKey.includes('-') ? postcodeKey.split('-')[0] : postcodeKey;
+    return {
+      postcode,
+      territory_id: territoryId,
+      state,
+      assigned_at: new Date().toISOString(),
+    };
+  });
 
-  const { error } = await supabase
+  console.log('savePostcodeAssignmentsToSupabase: Records to upsert:', records);
+
+  const { error, data } = await supabase
     .from('postcode_assignments')
-    .upsert(records);
+    .upsert(records)
+    .select();
 
   if (error) {
     console.error('Error saving postcode assignments to Supabase:', error);
     return false;
   }
+  console.log('savePostcodeAssignmentsToSupabase: Success! Upserted', data?.length || 0, 'records');
   return true;
 }
 
@@ -263,16 +327,106 @@ export async function removePostcodeAssignmentsFromSupabase(
 ): Promise<boolean> {
   if (postcodes.length === 0) return true;
 
+  // Extract just postcode numbers from composite keys like "2611-ACT"
+  const postcodeNumbers = postcodes.map((key) =>
+    key.includes('-') ? key.split('-')[0] : key
+  );
+
   const { error } = await supabase
     .from('postcode_assignments')
     .delete()
-    .in('postcode', postcodes);
+    .in('postcode', postcodeNumbers);
 
   if (error) {
     console.error('Error removing postcode assignments from Supabase:', error);
     return false;
   }
   return true;
+}
+
+// Cleanup function to fix corrupted postcode assignments with composite keys
+export async function cleanupCorruptedPostcodeAssignments(): Promise<{ fixed: number; deleted: number }> {
+  console.log('Starting cleanup of corrupted postcode assignments...');
+
+  // Fetch all assignments
+  const allData: DbPostcodeAssignment[] = [];
+  const pageSize = 1000;
+  let page = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    const from = page * pageSize;
+    const to = from + pageSize - 1;
+
+    const { data, error } = await supabase
+      .from('postcode_assignments')
+      .select('*')
+      .range(from, to);
+
+    if (error) {
+      console.error(`Error fetching page ${page}:`, error);
+      break;
+    }
+
+    if (data && data.length > 0) {
+      allData.push(...(data as DbPostcodeAssignment[]));
+      hasMore = data.length === pageSize;
+      page++;
+    } else {
+      hasMore = false;
+    }
+  }
+
+  console.log(`Found ${allData.length} total postcode assignments`);
+
+  // Find corrupted records (postcode contains a dash, indicating it's a composite key)
+  const corrupted = allData.filter(a => a.postcode.includes('-'));
+  console.log(`Found ${corrupted.length} corrupted records with composite keys`);
+
+  if (corrupted.length === 0) {
+    return { fixed: 0, deleted: 0 };
+  }
+
+  // Batch delete all corrupted records
+  const corruptedPostcodes = corrupted.map(r => r.postcode);
+  console.log(`Batch deleting ${corruptedPostcodes.length} corrupted records...`);
+
+  const { error: deleteError } = await supabase
+    .from('postcode_assignments')
+    .delete()
+    .in('postcode', corruptedPostcodes);
+
+  if (deleteError) {
+    console.error('Error batch deleting corrupted records:', deleteError);
+    return { fixed: 0, deleted: 0 };
+  }
+
+  // Create fixed records
+  const fixedRecords = corrupted.map(record => ({
+    postcode: record.postcode.split('-')[0],
+    territory_id: record.territory_id,
+    state: record.state,
+    assigned_at: record.assigned_at,
+  }));
+
+  // Batch insert in chunks of 100
+  let fixed = 0;
+  const batchSize = 100;
+  for (let i = 0; i < fixedRecords.length; i += batchSize) {
+    const batch = fixedRecords.slice(i, i + batchSize);
+    const { error: insertError } = await supabase
+      .from('postcode_assignments')
+      .upsert(batch);
+
+    if (insertError) {
+      console.error(`Error inserting batch ${i / batchSize + 1}:`, insertError);
+    } else {
+      fixed += batch.length;
+    }
+  }
+
+  console.log(`Cleanup complete: ${fixed} fixed, ${corrupted.length} deleted`);
+  return { fixed, deleted: corrupted.length };
 }
 
 // ============ Compliance Zone Functions ============
