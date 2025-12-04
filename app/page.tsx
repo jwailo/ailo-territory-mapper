@@ -25,6 +25,9 @@ import {
   deleteTerritoryFromSupabase,
   savePostcodeAssignmentsToSupabase,
   clearPostcodeAssignmentsFromSupabase,
+  loadComplianceZonesFromSupabase,
+  saveComplianceZoneToSupabase,
+  deleteComplianceZoneFromSupabase,
 } from './utils/supabaseData';
 import {
   isSiteAuthenticated,
@@ -48,6 +51,7 @@ import {
   filterCompanies,
   AssignmentMode,
   AreaAnalysisResult,
+  ComplianceZone,
 } from './types';
 import StatsPanel from './components/StatsPanel';
 import CompanyStatsPanel from './components/CompanyStatsPanel';
@@ -62,6 +66,7 @@ import AssignmentModeSelector from './components/AssignmentModeSelector';
 import AreaAnalysisPanel from './components/AreaAnalysisPanel';
 import SiteLoginScreen from './components/SiteLoginScreen';
 import AdminPasswordModal from './components/AdminPasswordModal';
+import ComplianceStatsBar from './components/ComplianceStatsBar';
 
 // Dynamic import for Map to avoid SSR issues with Leaflet
 const Map = dynamic(() => import('./components/Map'), {
@@ -85,7 +90,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [territories, setTerritories] = useState<Record<string, Territory>>({});
   const [selectedTerritory, setSelectedTerritory] = useState<Territory | null>(null);
-  const [selectedState, setSelectedState] = useState<AustralianState>('NSW');
+  const [selectedState, setSelectedState] = useState<AustralianState>('ALL');
   const [lastResult, setLastResult] = useState<AssignmentResult | null>(null);
   const [territoryCounts, setTerritoryCounts] = useState<Record<string, number>>({});
   const [clickToAssign, setClickToAssign] = useState(false);
@@ -108,6 +113,11 @@ export default function Home() {
   const [showHeatMap, setShowHeatMap] = useState(false);
   const [areaAnalysisResult, setAreaAnalysisResult] = useState<AreaAnalysisResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  // Compliance zone state
+  const [complianceZones, setComplianceZones] = useState<ComplianceZone[]>([]);
+  const [showComplianceZones, setShowComplianceZones] = useState(false);
+  const [complianceDrawEnabled, setComplianceDrawEnabled] = useState(false);
 
   // Collapsible panel state
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
@@ -230,6 +240,15 @@ export default function Home() {
         } catch (err) {
           console.log('Company data not loaded:', err);
           // Companies are optional, so we don't set error
+        }
+
+        // Load compliance zones from Supabase
+        try {
+          const zones = await loadComplianceZonesFromSupabase();
+          setComplianceZones(zones);
+          console.log(`Loaded ${zones.length} compliance zones from Supabase`);
+        } catch (err) {
+          console.log('Compliance zones not loaded:', err);
         }
 
         setLoading(false);
@@ -492,7 +511,47 @@ export default function Home() {
 
   const handleModeChange = useCallback((mode: AppMode) => {
     setAppMode(mode);
+    // Disable compliance draw when switching modes
+    setComplianceDrawEnabled(false);
   }, []);
+
+  // Compliance zone handlers
+  const handleComplianceZoneCreated = useCallback(
+    async (polygon: number[][]) => {
+      const id = `cz_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const newZone: ComplianceZone = {
+        id,
+        polygon,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      // Add to local state
+      setComplianceZones((prev) => [...prev, newZone]);
+
+      // Save to Supabase
+      const success = await saveComplianceZoneToSupabase(id, polygon);
+      if (!success) {
+        alert('Failed to save compliance zone. Please try again.');
+        setComplianceZones((prev) => prev.filter((z) => z.id !== id));
+      }
+    },
+    []
+  );
+
+  const handleComplianceZoneDeleted = useCallback(
+    async (zoneId: string) => {
+      // Remove from local state
+      setComplianceZones((prev) => prev.filter((z) => z.id !== zoneId));
+
+      // Delete from Supabase
+      const success = await deleteComplianceZoneFromSupabase(zoneId);
+      if (!success) {
+        alert('Failed to delete compliance zone from database.');
+      }
+    },
+    []
+  );
 
   // Initial stats calculation
   useEffect(() => {
@@ -568,8 +627,8 @@ export default function Home() {
         onAuthenticated={handleAdminAuthenticated}
       />
 
-      <div className="h-screen w-screen flex flex-col">
-        <header className="bg-[#1A1A2E] px-4 py-3 flex items-center justify-between">
+      <div className="flex-col-layout">
+        <header className="bg-[#1A1A2E] px-4 py-3 flex items-center justify-between flex-shrink-0">
         <h1 className="text-xl font-semibold text-[#EE0B4F]">Australian Postcode Territory Manager</h1>
         <ModeToggle
           mode={appMode}
@@ -580,7 +639,7 @@ export default function Home() {
       </header>
 
       {/* Collapsible Control Panel */}
-      <div className="bg-gray-50 border-b border-gray-200">
+      <div className="bg-gray-50 border-b border-gray-200 flex-shrink-0">
         {/* Toggle Header */}
         <button
           onClick={() => setFiltersCollapsed(!filtersCollapsed)}
@@ -651,6 +710,23 @@ export default function Home() {
                         </div>
                       </label>
                     </div>
+                    {/* Compliance Zones Toggle */}
+                    <div className="bg-white border border-gray-200 rounded-lg p-3">
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={showComplianceZones}
+                          onChange={(e) => setShowComplianceZones(e.target.checked)}
+                          className="h-5 w-5 text-blue-500 focus:ring-blue-500 border-gray-300 rounded accent-blue-500"
+                        />
+                        <div>
+                          <span className="text-sm font-medium text-gray-800">Show Compliance Zones</span>
+                          <p className="text-xs text-gray-500">
+                            {complianceZones.length} zone{complianceZones.length !== 1 ? 's' : ''} defined
+                          </p>
+                        </div>
+                      </label>
+                    </div>
                     {/* Area Analysis Panel */}
                     <AreaAnalysisPanel
                       result={areaAnalysisResult}
@@ -709,6 +785,28 @@ export default function Home() {
                     onModeChange={setAssignmentMode}
                   />
                 </div>
+                {/* Compliance Zones Tool */}
+                <div className="w-64 flex-shrink-0">
+                  <div className="bg-white border border-gray-200 rounded-lg p-3">
+                    <div className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">
+                      Compliance Zones
+                    </div>
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={complianceDrawEnabled}
+                        onChange={(e) => setComplianceDrawEnabled(e.target.checked)}
+                        className="h-5 w-5 text-blue-500 focus:ring-blue-500 border-gray-300 rounded accent-blue-500"
+                      />
+                      <div>
+                        <span className="text-sm font-medium text-gray-800">Draw Compliance Zones</span>
+                        <p className="text-xs text-gray-500">
+                          {complianceZones.length} zone{complianceZones.length !== 1 ? 's' : ''} saved
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -717,7 +815,7 @@ export default function Home() {
 
       {/* Assignment result notification (admin mode only) */}
       {!isViewMode && lastResult && (lastResult.assigned.length > 0 || lastResult.skipped.length > 0 || lastResult.reassigned.length > 0 || (lastResult.outsideState?.length || 0) > 0) && (
-        <div className="px-4 py-2 bg-red-50 border-b border-[#EE0B4F]/30">
+        <div className="px-4 py-2 bg-red-50 border-b border-[#EE0B4F]/30 flex-shrink-0">
           <p className="text-sm text-[#EE0B4F]">
             {lastResult.assigned.length > 0 && (
               <span className="font-semibold">
@@ -748,7 +846,8 @@ export default function Home() {
         </div>
       )}
 
-      <main className="flex-1 relative">
+      <main className="flex-grow-map">
+        <div className="map-wrapper">
         <Map
           key={updateKey}
           data={data}
@@ -763,15 +862,21 @@ export default function Home() {
           mode={appMode}
           assignmentMode={assignmentMode}
           showHeatMap={showHeatMap}
+          complianceZones={complianceZones}
+          showComplianceZones={showComplianceZones || complianceDrawEnabled}
+          complianceDrawEnabled={complianceDrawEnabled}
+          onComplianceZoneCreated={handleComplianceZoneCreated}
+          onComplianceZoneDeleted={handleComplianceZoneDeleted}
           onAssignment={handleAssignment}
           onClickAssign={handleClickAssign}
           onAreaAnalysis={handleAreaAnalysis}
         />
+        </div>
       </main>
 
       {/* Footer - only show in admin mode */}
       {!isViewMode && (
-        <footer className="p-4 bg-gray-50 border-t border-gray-200">
+        <footer className="p-4 bg-gray-50 border-t border-gray-200 flex-shrink-0 overflow-auto max-h-[40vh]">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="space-y-3">
               <StatsPanel
@@ -803,6 +908,13 @@ export default function Home() {
           </div>
         </footer>
       )}
+
+      {/* Compliance Stats Bar - View Mode only */}
+      <ComplianceStatsBar
+        companies={filteredCompanies}
+        zones={complianceZones}
+        visible={isViewMode && showComplianceZones}
+      />
       </div>
     </>
   );

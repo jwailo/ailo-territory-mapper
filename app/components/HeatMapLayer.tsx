@@ -1,239 +1,168 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import { useMap } from 'react-leaflet';
 import L from 'leaflet';
+import * as turf from '@turf/turf';
 import { CompanyData } from '../types';
 
 interface HeatMapLayerProps {
   companies: CompanyData[];
   visible: boolean;
-  intensity?: number;
-  radius?: number;
-  blur?: number;
+  cellSize?: number; // Size of hexagons in kilometers
 }
 
-// Simple canvas-based heat map implementation
-class SimpleHeatLayer extends L.Layer {
-  private _canvas: HTMLCanvasElement;
-  private _ctx: CanvasRenderingContext2D | null = null;
-  private _data: [number, number, number][] = [];
-  private _radius: number;
-  private _blur: number;
-  private _max: number;
-  private _gradient: HTMLCanvasElement | null = null;
-
-  constructor(
-    data: [number, number, number][],
-    options: { radius?: number; blur?: number; max?: number } = {}
-  ) {
-    super();
-    this._data = data;
-    this._radius = options.radius ?? 25;
-    this._blur = options.blur ?? 15;
-    this._max = options.max ?? 5;
-    this._canvas = document.createElement('canvas');
-    this._canvas.style.position = 'absolute';
-    this._canvas.style.pointerEvents = 'none';
-  }
-
-  onAdd(map: L.Map): this {
-    const pane = map.getPane('overlayPane');
-    if (pane) {
-      pane.appendChild(this._canvas);
-    }
-    this._ctx = this._canvas.getContext('2d');
-    this._createGradient();
-
-    map.on('moveend', this._redraw, this);
-    map.on('zoomend', this._redraw, this);
-    map.on('resize', this._resize, this);
-
-    this._resize();
-    this._redraw();
-    return this;
-  }
-
-  onRemove(map: L.Map): this {
-    map.off('moveend', this._redraw, this);
-    map.off('zoomend', this._redraw, this);
-    map.off('resize', this._resize, this);
-
-    if (this._canvas.parentNode) {
-      this._canvas.parentNode.removeChild(this._canvas);
-    }
-    return this;
-  }
-
-  private _resize(): void {
-    const map = this._map;
-    if (!map) return;
-
-    const size = map.getSize();
-    this._canvas.width = size.x;
-    this._canvas.height = size.y;
-  }
-
-  private _createGradient(): void {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    canvas.width = 1;
-    canvas.height = 256;
-
-    const gradient = ctx.createLinearGradient(0, 0, 0, 256);
-    gradient.addColorStop(0.0, 'rgba(0, 0, 255, 1)');
-    gradient.addColorStop(0.25, 'rgba(0, 255, 255, 1)');
-    gradient.addColorStop(0.5, 'rgba(0, 255, 0, 1)');
-    gradient.addColorStop(0.75, 'rgba(255, 255, 0, 1)');
-    gradient.addColorStop(1.0, 'rgba(255, 0, 0, 1)');
-
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, 1, 256);
-
-    this._gradient = canvas;
-  }
-
-  private _redraw(): void {
-    const map = this._map;
-    if (!map || !this._ctx) return;
-
-    const ctx = this._ctx;
-    const size = map.getSize();
-    const bounds = map.getBounds();
-    const topLeft = map.latLngToContainerPoint(bounds.getNorthWest());
-
-    // Position canvas
-    L.DomUtil.setPosition(this._canvas, topLeft);
-
-    // Clear canvas
-    ctx.clearRect(0, 0, size.x, size.y);
-
-    // Draw heat points
-    const r = this._radius + this._blur;
-
-    // Create shadow canvas for intensity
-    const shadowCanvas = document.createElement('canvas');
-    shadowCanvas.width = size.x;
-    shadowCanvas.height = size.y;
-    const shadowCtx = shadowCanvas.getContext('2d');
-    if (!shadowCtx) return;
-
-    // Draw circles with intensity
-    for (const [lat, lng, intensity] of this._data) {
-      const point = map.latLngToContainerPoint([lat, lng]);
-      const x = point.x - topLeft.x;
-      const y = point.y - topLeft.y;
-
-      // Skip points outside visible area (with buffer)
-      if (x < -r || x > size.x + r || y < -r || y > size.y + r) continue;
-
-      // Normalized intensity
-      const alpha = Math.min(intensity / this._max, 1);
-
-      // Draw radial gradient
-      const gradient = shadowCtx.createRadialGradient(x, y, 0, x, y, r);
-      gradient.addColorStop(0, `rgba(0, 0, 0, ${alpha})`);
-      gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-
-      shadowCtx.beginPath();
-      shadowCtx.arc(x, y, r, 0, Math.PI * 2);
-      shadowCtx.fillStyle = gradient;
-      shadowCtx.fill();
-    }
-
-    // Colorize based on intensity
-    if (this._gradient) {
-      const imageData = shadowCtx.getImageData(0, 0, size.x, size.y);
-      const gradientData = this._gradient.getContext('2d')?.getImageData(0, 0, 1, 256).data;
-
-      if (gradientData) {
-        const pixels = imageData.data;
-        for (let i = 0; i < pixels.length; i += 4) {
-          const alpha = pixels[i + 3];
-          if (alpha > 0) {
-            const gradientIndex = Math.min(255, Math.floor((alpha / 255) * 255)) * 4;
-            pixels[i] = gradientData[gradientIndex];
-            pixels[i + 1] = gradientData[gradientIndex + 1];
-            pixels[i + 2] = gradientData[gradientIndex + 2];
-            pixels[i + 3] = alpha > 20 ? Math.min(200, alpha * 1.5) : 0; // Threshold and opacity
-          }
-        }
-        ctx.putImageData(imageData, 0, 0);
-      }
-    }
-  }
-
-  setData(data: [number, number, number][]): this {
-    this._data = data;
-    this._redraw();
-    return this;
-  }
+// Color scale for PUM intensity: Grey -> Yellow -> Orange -> Red -> Purple
+function getHexColor(intensity: number): string {
+  if (intensity < 0.2) return '#9CA3AF'; // grey
+  if (intensity < 0.4) return '#FCD34D'; // yellow
+  if (intensity < 0.6) return '#F97316'; // orange
+  if (intensity < 0.8) return '#EF4444'; // red
+  return '#7C3AED'; // purple
 }
 
 export default function HeatMapLayer({
   companies,
   visible,
-  intensity = 1,
-  radius = 25,
-  blur = 15,
+  cellSize = 50, // 50km hexagons by default
 }: HeatMapLayerProps) {
   const map = useMap();
-  const heatLayerRef = useRef<SimpleHeatLayer | null>(null);
+  const hexLayerRef = useRef<L.GeoJSON | null>(null);
+
+  // Create hexbin data from companies
+  const hexbinData = useMemo(() => {
+    // Filter companies with valid coordinates in Australia
+    const validCompanies = companies.filter((c) => {
+      const lat = c.lat;
+      const lng = c.long;
+      return (
+        lat !== null &&
+        lng !== null &&
+        !isNaN(lat) &&
+        !isNaN(lng) &&
+        lat > -45 &&
+        lat < -10 &&
+        lng > 110 &&
+        lng < 155
+      );
+    });
+
+    console.log('Valid companies for hexbin:', validCompanies.length);
+
+    if (validCompanies.length === 0) {
+      return null;
+    }
+
+    // Create points from companies
+    const points = turf.featureCollection(
+      validCompanies.map((c) =>
+        turf.point([c.long!, c.lat!], { pum: c.pum || 0 })
+      )
+    );
+
+    // Australia bounding box
+    const bbox: [number, number, number, number] = [110, -45, 155, -10];
+
+    // Create hexbin grid
+    const hexGrid = turf.hexGrid(bbox, cellSize, { units: 'kilometers' });
+
+    // Aggregate PUM into each hexagon
+    hexGrid.features.forEach((hex) => {
+      const ptsWithin = turf.pointsWithinPolygon(points, hex);
+      const totalPUM = ptsWithin.features.reduce(
+        (sum, pt) => sum + ((pt.properties?.pum as number) || 0),
+        0
+      );
+      const companyCount = ptsWithin.features.length;
+      hex.properties = hex.properties || {};
+      hex.properties.pum = totalPUM;
+      hex.properties.count = companyCount;
+    });
+
+    // Filter out empty hexagons
+    const nonEmptyHexes = {
+      type: 'FeatureCollection' as const,
+      features: hexGrid.features.filter(
+        (h) => h.properties && h.properties.count > 0
+      ),
+    };
+
+    // Find max PUM for color scaling
+    const maxPUM = Math.max(
+      ...nonEmptyHexes.features.map((h) => h.properties?.pum || 0),
+      1 // Prevent division by zero
+    );
+
+    console.log(
+      'Hexbin grid created:',
+      nonEmptyHexes.features.length,
+      'hexagons with data, max PUM:',
+      maxPUM
+    );
+
+    return { hexes: nonEmptyHexes, maxPUM };
+  }, [companies, cellSize]);
 
   useEffect(() => {
-    if (!visible) {
-      // Remove heat layer if not visible
-      if (heatLayerRef.current) {
-        map.removeLayer(heatLayerRef.current);
-        heatLayerRef.current = null;
+    // Remove existing layer if any
+    if (hexLayerRef.current) {
+      try {
+        map.removeLayer(hexLayerRef.current);
+      } catch (e) {
+        console.warn('Error removing hex layer:', e);
       }
+      hexLayerRef.current = null;
+    }
+
+    // Don't show if not visible or no data
+    if (!visible || !hexbinData) {
+      console.log('Hexbin layer hidden or no data');
       return;
     }
 
-    // Generate heat data from companies with PUM weighting
-    const heatData: [number, number, number][] = companies
-      .filter((c) => c.lat !== null && c.long !== null && c.pum > 0)
-      .map((c) => {
-        // Normalize PUM for heat intensity (log scale for better visualization)
-        const normalizedPUM = Math.log10(c.pum + 1) * intensity;
-        return [c.lat!, c.long!, normalizedPUM];
-      });
+    const { hexes, maxPUM } = hexbinData;
 
-    console.log('Heat map data:', heatData.length, 'points');
+    // Create GeoJSON layer with color based on PUM
+    const hexLayer = L.geoJSON(hexes as GeoJSON.FeatureCollection, {
+      style: (feature) => {
+        const pum = feature?.properties?.pum || 0;
+        const intensity = pum / maxPUM;
+        return {
+          fillColor: getHexColor(intensity),
+          fillOpacity: 0.6,
+          weight: 1,
+          color: '#ffffff',
+          opacity: 0.3,
+        };
+      },
+      onEachFeature: (feature, layer) => {
+        const count = feature.properties?.count || 0;
+        const pum = feature.properties?.pum || 0;
+        layer.bindPopup(`
+          <div style="text-align: center; padding: 4px;">
+            <strong style="font-size: 14px;">${count} ${count === 1 ? 'Company' : 'Companies'}</strong><br/>
+            <span style="color: #666;">Total PUM: ${pum.toLocaleString()}</span>
+          </div>
+        `);
+      },
+    });
 
-    // Remove existing layer if any
-    if (heatLayerRef.current) {
-      map.removeLayer(heatLayerRef.current);
-      heatLayerRef.current = null;
-    }
-
-    // Create new heat layer
-    if (heatData.length > 0) {
-      try {
-        const heatLayer = new SimpleHeatLayer(heatData, {
-          radius,
-          blur,
-          max: 5,
-        });
-
-        heatLayer.addTo(map);
-        heatLayerRef.current = heatLayer;
-        console.log('Heat layer added to map');
-      } catch (err) {
-        console.error('Error creating heat layer:', err);
-      }
-    }
+    hexLayer.addTo(map);
+    hexLayerRef.current = hexLayer;
+    console.log('Hexbin layer added with', hexes.features.length, 'hexagons');
 
     // Cleanup on unmount
     return () => {
-      if (heatLayerRef.current) {
-        map.removeLayer(heatLayerRef.current);
-        heatLayerRef.current = null;
+      if (hexLayerRef.current) {
+        try {
+          map.removeLayer(hexLayerRef.current);
+        } catch (e) {
+          // Ignore cleanup errors
+        }
+        hexLayerRef.current = null;
       }
     };
-  }, [map, companies, visible, intensity, radius, blur]);
+  }, [map, visible, hexbinData]);
 
   return null;
 }

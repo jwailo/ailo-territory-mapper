@@ -22,11 +22,14 @@ import {
   AppMode,
   AssignmentMode,
   AreaAnalysisResult,
+  ComplianceZone,
 } from '../types';
 import { getPostcodesInPolygon, assignPostcodes } from '../utils/territoryAssignment';
 import { getCompaniesInPolygon, analyzeArea } from '../utils/areaAnalysis';
 import CompanyLayer from './CompanyLayer';
 import HeatMapLayer from './HeatMapLayer';
+import ComplianceZoneLayer from './ComplianceZoneLayer';
+import ComplianceDrawControl from './ComplianceDrawControl';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
@@ -44,6 +47,13 @@ interface MapProps {
   mode: AppMode;
   assignmentMode: AssignmentMode;
   showHeatMap: boolean;
+  // Compliance zone props
+  complianceZones: ComplianceZone[];
+  showComplianceZones: boolean;
+  complianceDrawEnabled: boolean;
+  onComplianceZoneCreated: (polygon: number[][]) => void;
+  onComplianceZoneDeleted: (zoneId: string) => void;
+  // Callbacks
   onAssignment: (result: AssignmentResult) => void;
   onClickAssign: (postcode: PostcodeData) => void;
   onAreaAnalysis: (result: AreaAnalysisResult | null) => void;
@@ -57,6 +67,51 @@ function MapViewController({ selectedState }: { selectedState: AustralianState }
     const bounds = STATE_BOUNDS[selectedState];
     map.setView(bounds.center, bounds.zoom);
   }, [selectedState, map]);
+
+  return null;
+}
+
+// Component to handle map resize when layout changes
+function MapResizeHandler() {
+  const map = useMap();
+
+  useEffect(() => {
+    // Invalidate size on mount to ensure proper initial rendering
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+    }, 100);
+
+    // Handle window resize
+    const handleResize = () => {
+      map.invalidateSize();
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    // Also listen for visibility changes (e.g., tab switching)
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        setTimeout(() => map.invalidateSize(), 100);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    // Use ResizeObserver to detect container size changes
+    const container = map.getContainer();
+    const resizeObserver = new ResizeObserver(() => {
+      map.invalidateSize();
+    });
+    if (container.parentElement) {
+      resizeObserver.observe(container.parentElement);
+    }
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', handleResize);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      resizeObserver.disconnect();
+    };
+  }, [map]);
 
   return null;
 }
@@ -220,6 +275,11 @@ export default function Map({
   mode,
   assignmentMode,
   showHeatMap,
+  complianceZones,
+  showComplianceZones,
+  complianceDrawEnabled,
+  onComplianceZoneCreated,
+  onComplianceZoneDeleted,
   onAssignment,
   onClickAssign,
   onAreaAnalysis,
@@ -270,16 +330,19 @@ export default function Map({
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       <MapViewController selectedState={selectedState} />
+      <MapResizeHandler />
 
-      {/* Territory assignment draw control in admin mode */}
-      <DrawControl
-        selectedTerritory={selectedTerritory}
-        selectedState={selectedState}
-        postcodes={data.postcodes}
-        assignmentMode={assignmentMode}
-        onAssignment={onAssignment}
-        enabled={!isViewMode}
-      />
+      {/* Territory assignment draw control in admin mode (disabled when compliance draw is active) */}
+      {!isViewMode && !complianceDrawEnabled && (
+        <DrawControl
+          selectedTerritory={selectedTerritory}
+          selectedState={selectedState}
+          postcodes={data.postcodes}
+          assignmentMode={assignmentMode}
+          onAssignment={onAssignment}
+          enabled={true}
+        />
+      )}
 
       {/* Analysis polygon draw control in view mode */}
       <AnalysisDrawControl
@@ -293,6 +356,22 @@ export default function Map({
         companies={filteredCompanies}
         visible={isViewMode && showHeatMap}
       />
+
+      {/* Compliance zone display layer */}
+      <ComplianceZoneLayer
+        zones={complianceZones}
+        visible={showComplianceZones}
+        isAdminMode={!isViewMode}
+        onDeleteZone={onComplianceZoneDeleted}
+      />
+
+      {/* Compliance zone draw control in admin mode */}
+      {complianceDrawEnabled && (
+        <ComplianceDrawControl
+          enabled={true}
+          onZoneCreated={onComplianceZoneCreated}
+        />
+      )}
 
       {/* Only show postcodes in admin mode */}
       {!isViewMode && (

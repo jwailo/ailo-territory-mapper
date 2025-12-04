@@ -299,3 +299,16 @@ export interface AreaAnalysisResult {
   byStage: Record<string, { count: number; pum: number }>;
   byOwner: Record<string, { count: number; pum: number }>;
 }
+
+// Compliance Zone types
+export interface ComplianceZone {
+  id: string;
+  polygon: number[][]; // Array of [lng, lat] coordinates
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ComplianceStats {
+  companyCount: number;
+  totalPUM: number;
+}

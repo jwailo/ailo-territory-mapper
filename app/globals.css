@@ -5,16 +5,56 @@
   --foreground: #171717;
 }
 
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
-  margin: 0;
-  padding: 0;
 }
 
 /* Ensure Leaflet container fills its parent */
 .leaflet-container {
-  height: 100%;
+  height: 100% !important;
+  width: 100% !important;
+  min-height: 0;
+  background: #f3f4f6; /* Fallback background color */
+}
+
+/* Map container must fill available space - absolute positioning within flex container */
+.map-wrapper {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   width: 100%;
+  height: 100%;
+}
+
+/* Main flex layout - full viewport height */
+.flex-col-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh; /* Dynamic viewport height for mobile */
+  overflow: hidden;
+}
+
+/* Map section - expands to fill all remaining space */
+.flex-grow-map {
+  flex: 1 1 auto;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Ensure footer doesn't push map up */
+.stats-footer {
+  flex-shrink: 0;
 }

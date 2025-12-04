@@ -7,8 +7,12 @@ interface OwnerAvatarProps {
   size?: 'sm' | 'md' | 'lg';
 }
 
-function getOwnerImagePath(ownerName: string): string {
-  return `/team-images/${ownerName}.png`;
+// Supported image extensions in order of preference
+const IMAGE_EXTENSIONS = ['jpeg', 'jpg', 'png'];
+
+function getOwnerImagePath(ownerName: string, extensionIndex: number): string | null {
+  if (extensionIndex >= IMAGE_EXTENSIONS.length) return null;
+  return `/team-images/${ownerName}.${IMAGE_EXTENSIONS[extensionIndex]}`;
 }
 
 function getOwnerInitials(ownerName: string): string {
@@ -29,6 +33,7 @@ const sizeConfig = {
 };
 
 export default function OwnerAvatar({ ownerName, size = 'md' }: OwnerAvatarProps) {
+  const [extensionIndex, setExtensionIndex] = useState(0);
   const [imageError, setImageError] = useState(false);
   const config = sizeConfig[size];
 
@@ -44,9 +49,10 @@ export default function OwnerAvatar({ ownerName, size = 'md' }: OwnerAvatarProps
   }
 
   const initials = getOwnerInitials(ownerName);
-  const imagePath = getOwnerImagePath(ownerName);
+  const imagePath = getOwnerImagePath(ownerName, extensionIndex);
 
-  if (imageError) {
+  // All extensions tried, show initials fallback
+  if (imageError || !imagePath) {
     return (
       <div
         className={`${config.className} rounded-full bg-[#EE0B4F] flex items-center justify-center font-semibold text-white border-2 border-white shadow-md`}
@@ -67,9 +73,20 @@ export default function OwnerAvatar({ ownerName, size = 'md' }: OwnerAvatarProps
       style={{
         width: config.size,
         height: config.size,
-        imageRendering: 'auto',
+        minWidth: config.size,
+        minHeight: config.size,
       }}
-      onError={() => setImageError(true)}
+      onError={() => {
+        // Try next extension
+        const nextIndex = extensionIndex + 1;
+        if (nextIndex < IMAGE_EXTENSIONS.length) {
+          console.log(`Trying next extension for ${ownerName}: .${IMAGE_EXTENSIONS[nextIndex]}`);
+          setExtensionIndex(nextIndex);
+        } else {
+          console.log(`No image found for: ${ownerName} (tried all extensions)`);
+          setImageError(true);
+        }
+      }}
     />
   );
 }

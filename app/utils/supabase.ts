@@ -40,3 +40,10 @@ export interface DbPostcodeAssignment {
   state: string;
   assigned_at: string;
 }
+
+export interface DbComplianceZone {
+  id: string;
+  polygon: number[][]; // Array of [lng, lat] coordinates
+  created_at: string;
+  updated_at: string;
+}

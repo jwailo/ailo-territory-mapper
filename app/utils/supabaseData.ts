@@ -1,5 +1,5 @@
-import { supabase, DbCompany, DbTerritory, DbPostcodeAssignment } from './supabase';
-import { CompanyData, CompanyStore, Territory, LifecycleStage, CoordSource } from '../types';
+import { supabase, DbCompany, DbTerritory, DbPostcodeAssignment, DbComplianceZone } from './supabase';
+import { CompanyData, CompanyStore, Territory, LifecycleStage, CoordSource, ComplianceZone } from '../types';
 
 const HUBSPOT_ACCOUNT_ID = '49213690';
 
@@ -268,6 +268,63 @@ export async function removePostcodeAssignmentsFromSupabase(
 
   if (error) {
     console.error('Error removing postcode assignments from Supabase:', error);
+    return false;
+  }
+  return true;
+}
+
+// ============ Compliance Zone Functions ============
+
+// Load compliance zones from Supabase
+export async function loadComplianceZonesFromSupabase(): Promise<ComplianceZone[]> {
+  const { data, error } = await supabase
+    .from('compliance_zones')
+    .select('*');
+
+  if (error) {
+    console.error('Error loading compliance zones from Supabase:', error);
+    return [];
+  }
+
+  return (data || []).map((zone: DbComplianceZone) => ({
+    id: zone.id,
+    polygon: zone.polygon,
+    createdAt: zone.created_at,
+    updatedAt: zone.updated_at,
+  }));
+}
+
+// Save a compliance zone to Supabase
+export async function saveComplianceZoneToSupabase(
+  id: string,
+  polygon: number[][]
+): Promise<boolean> {
+  const { error } = await supabase
+    .from('compliance_zones')
+    .insert({
+      id,
+      polygon,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+
+  if (error) {
+    console.error('Error saving compliance zone to Supabase:', error);
+    console.error('Error details:', JSON.stringify(error));
+    return false;
+  }
+  return true;
+}
+
+// Delete a compliance zone from Supabase
+export async function deleteComplianceZoneFromSupabase(id: string): Promise<boolean> {
+  const { error } = await supabase
+    .from('compliance_zones')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting compliance zone from Supabase:', error);
     return false;
   }
   return true;
