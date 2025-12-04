@@ -266,70 +266,60 @@ async function getCoordinates(props) {
   return { lat: null, long: null, source: 'missing' };
 }
 
+// Upload a single batch to Supabase
+async function uploadBatch(batch, batchNumber, totalBatches) {
+  const { error } = await supabase
+    .from('companies')
+    .upsert(batch, { onConflict: 'id' });
+
+  if (error) {
+    console.error(`\nBatch ${batchNumber}/${totalBatches} error:`, error.message);
+
+    // Try inserting one by one to find the problematic record
+    let successCount = 0;
+    let errorCount = 0;
+    for (const record of batch) {
+      const { error: singleError } = await supabase
+        .from('companies')
+        .upsert(record, { onConflict: 'id' });
+
+      if (singleError) {
+        errorCount++;
+        console.error(`  Failed: ${record.id} (${record.name}): ${singleError.message}`);
+      } else {
+        successCount++;
+      }
+    }
+    return { success: successCount, errors: errorCount };
+  }
+
+  console.log(`✓ Uploaded batch ${batchNumber}/${totalBatches} (${batch.length} companies)`);
+  return { success: batch.length, errors: 0 };
+}
+
 async function syncToSupabase(companies) {
   console.log(`Syncing ${companies.length} companies to Supabase...`);
 
   const batchSize = 100;
   let successCount = 0;
   let errorCount = 0;
-  const failedRecords = [];
 
   for (let i = 0; i < companies.length; i += batchSize) {
     const batch = companies.slice(i, i + batchSize);
+    const batchNumber = Math.floor(i / batchSize) + 1;
+    const totalBatches = Math.ceil(companies.length / batchSize);
 
-    const { error } = await supabase
-      .from('companies')
-      .upsert(batch, { onConflict: 'id' });
-
-    if (error) {
-      console.error(`\nBatch ${i}-${i + batchSize} error:`, error.message);
-      console.error('Error code:', error.code);
-      console.error('Error details:', error.details);
-
-      // Try inserting one by one to find the problematic record
-      console.log('Trying individual inserts to identify problem records...');
-      for (const record of batch) {
-        const { error: singleError } = await supabase
-          .from('companies')
-          .upsert(record, { onConflict: 'id' });
-
-        if (singleError) {
-          errorCount++;
-          failedRecords.push({ id: record.id, name: record.name, error: singleError.message });
-          console.error(`  Failed: ${record.id} (${record.name}): ${singleError.message}`);
-        } else {
-          successCount++;
-        }
-      }
-    } else {
-      successCount += batch.length;
-      console.log(`Synced ${Math.min(i + batchSize, companies.length)} / ${companies.length}`);
-    }
+    const result = await uploadBatch(batch, batchNumber, totalBatches);
+    successCount += result.success;
+    errorCount += result.errors;
   }
 
   console.log(`\nSync summary: ${successCount} succeeded, ${errorCount} failed`);
-  if (failedRecords.length > 0) {
-    console.log('Failed records:');
-    failedRecords.forEach(r => console.log(`  ${r.id}: ${r.name} - ${r.error}`));
-  }
 }
 
 async function main() {
   console.log('Starting HubSpot sync...');
   console.log('========================');
-
-  // Debug: Fetch one company with all PUM-related properties
-  console.log('\n--- DEBUG: Fetching properties including all PUM fields ---');
-  const debugProps = 'name,state,estimated_pum__company_,estimated_pum__import_,total_pum__planhat_temp_,estimated_pum,pum';
-  const debugResponse = await fetch(`https://api.hubapi.com/crm/v3/objects/companies?limit=5&properties=${debugProps}`, {
-    headers: { 'Authorization': `Bearer ${HUBSPOT_ACCESS_TOKEN}` }
-  });
-  const debugData = await debugResponse.json();
-  console.log('PUM fields for first 5 companies:');
-  for (const company of debugData.results) {
-    console.log(`  ${company.properties.name}: estimated_pum__company_=${company.properties.estimated_pum__company_}, estimated_pum__import_=${company.properties.estimated_pum__import_}, total_pum__planhat_temp_=${company.properties.total_pum__planhat_temp_}, estimated_pum=${company.properties.estimated_pum}, pum=${company.properties.pum}`);
-  }
-  console.log('--- END DEBUG ---\n');
 
   // Load postcode data for fallback geocoding
   loadPostcodeData();
@@ -351,12 +341,18 @@ async function main() {
     console.log(`TEST MODE: Processing only ${TEST_LIMIT} companies`);
   }
 
-  // Transform and geocode
-  const companies = [];
+  // Process and upload in batches of 100
+  const BATCH_SIZE = 100;
+  let batch = [];
+  let totalProcessed = 0;
+  let totalUploaded = 0;
+  let totalErrors = 0;
   let geocodeCount = 0;
   let hubspotCoordCount = 0;
   let postcodeCount = 0;
   let missingCount = 0;
+
+  const totalBatches = Math.ceil(hubspotCompanies.length / BATCH_SIZE);
 
   for (let i = 0; i < hubspotCompanies.length; i++) {
     const company = hubspotCompanies[i];
@@ -374,12 +370,7 @@ async function main() {
       case 'missing': missingCount++; break;
     }
 
-    // Debug: Log unmatched owner IDs
-    if (props.hubspot_owner_id && !owners[props.hubspot_owner_id]) {
-      console.log(`Unmatched owner ID: ${props.hubspot_owner_id} for company: ${props.name}`);
-    }
-
-    companies.push({
+    batch.push({
       id: company.id,
       name: props.name || null,
       address: props.address || null,
@@ -398,18 +389,29 @@ async function main() {
       updated_at: new Date().toISOString()
     });
 
-    // Progress update every 100 companies
-    if ((i + 1) % 100 === 0) {
-      console.log(`Processed ${i + 1} / ${hubspotCompanies.length}`);
+    totalProcessed++;
+
+    // Upload batch when full
+    if (batch.length >= BATCH_SIZE) {
+      const batchNumber = Math.floor(totalProcessed / BATCH_SIZE);
+      const result = await uploadBatch(batch, batchNumber, totalBatches);
+      totalUploaded += result.success;
+      totalErrors += result.errors;
+      batch = []; // Clear batch
     }
   }
 
-  // Sync to Supabase
-  await syncToSupabase(companies);
+  // Upload remaining records
+  if (batch.length > 0) {
+    const result = await uploadBatch(batch, totalBatches, totalBatches);
+    totalUploaded += result.success;
+    totalErrors += result.errors;
+  }
 
   console.log('========================');
   console.log('Sync complete!');
-  console.log(`Total: ${companies.length}`);
+  console.log(`Total processed: ${totalProcessed}`);
+  console.log(`Uploaded: ${totalUploaded}, Errors: ${totalErrors}`);
   console.log(`HubSpot coords: ${hubspotCoordCount}`);
   console.log(`Geocoded: ${geocodeCount}`);
   console.log(`Postcode fallback: ${postcodeCount}`);
