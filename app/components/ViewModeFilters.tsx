@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   CompanyData,
   CompanyFilters,
@@ -28,9 +28,13 @@ export default function ViewModeFilters({
   filteredPUM,
 }: ViewModeFiltersProps) {
   const [searchInput, setSearchInput] = useState(filters.search);
+  const [minPUMInput, setMinPUMInput] = useState<string>(filters.minPUM?.toString() ?? '');
+  const [maxPUMInput, setMaxPUMInput] = useState<string>(filters.maxPUM?.toString() ?? '');
+  const isInitialMount = useRef(true);
 
   // Debounce search input
   useEffect(() => {
+    if (isInitialMount.current) return;
     const timer = setTimeout(() => {
       if (searchInput !== filters.search) {
         onFiltersChange({ ...filters, search: searchInput });
@@ -38,6 +42,37 @@ export default function ViewModeFilters({
     }, 300);
     return () => clearTimeout(timer);
   }, [searchInput, filters, onFiltersChange]);
+
+  // Debounce minPUM input
+  useEffect(() => {
+    if (isInitialMount.current) return;
+    const timer = setTimeout(() => {
+      const num = minPUMInput === '' ? null : parseInt(minPUMInput, 10);
+      const validNum = isNaN(num as number) ? null : num;
+      if (validNum !== filters.minPUM) {
+        onFiltersChange({ ...filters, minPUM: validNum });
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [minPUMInput, filters, onFiltersChange]);
+
+  // Debounce maxPUM input
+  useEffect(() => {
+    if (isInitialMount.current) return;
+    const timer = setTimeout(() => {
+      const num = maxPUMInput === '' ? null : parseInt(maxPUMInput, 10);
+      const validNum = isNaN(num as number) ? null : num;
+      if (validNum !== filters.maxPUM) {
+        onFiltersChange({ ...filters, maxPUM: validNum });
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [maxPUMInput, filters, onFiltersChange]);
+
+  // Mark initial mount as complete after first render
+  useEffect(() => {
+    isInitialMount.current = false;
+  }, []);
 
   // Get unique owners and stages from companies
   const { owners, stages } = useMemo(() => {
@@ -73,18 +108,10 @@ export default function ViewModeFilters({
     onFiltersChange({ ...filters, ailoCustomer: value });
   };
 
-  const handleMinPUMChange = (value: string) => {
-    const num = value === '' ? null : parseInt(value, 10);
-    onFiltersChange({ ...filters, minPUM: isNaN(num as number) ? null : num });
-  };
-
-  const handleMaxPUMChange = (value: string) => {
-    const num = value === '' ? null : parseInt(value, 10);
-    onFiltersChange({ ...filters, maxPUM: isNaN(num as number) ? null : num });
-  };
-
   const handleClearFilters = () => {
     setSearchInput('');
+    setMinPUMInput('');
+    setMaxPUMInput('');
     onFiltersChange(DEFAULT_COMPANY_FILTERS);
   };
 
@@ -225,16 +252,16 @@ export default function ViewModeFilters({
           <div className="flex items-center gap-2">
             <input
               type="number"
-              value={filters.minPUM ?? ''}
-              onChange={(e) => handleMinPUMChange(e.target.value)}
+              value={minPUMInput}
+              onChange={(e) => setMinPUMInput(e.target.value)}
               placeholder="Min"
               className="w-24 px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#EE0B4F] focus:border-[#EE0B4F]"
             />
             <span className="text-gray-400">to</span>
             <input
               type="number"
-              value={filters.maxPUM ?? ''}
-              onChange={(e) => handleMaxPUMChange(e.target.value)}
+              value={maxPUMInput}
+              onChange={(e) => setMaxPUMInput(e.target.value)}
               placeholder="Max"
               className="w-24 px-2 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#EE0B4F] focus:border-[#EE0B4F]"
             />
