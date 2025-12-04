@@ -33,9 +33,11 @@ function normalizeLifecycleStage(stage: string | null): LifecycleStage {
 
 // Load companies from Supabase
 export async function loadCompaniesFromSupabase(): Promise<CompanyStore | null> {
+  // Supabase defaults to 1000 rows, so we need to set a higher limit
   const { data, error } = await supabase
     .from('companies')
-    .select('*');
+    .select('*')
+    .limit(20000);
 
   if (error) {
     console.error('Error loading companies from Supabase:', error);
