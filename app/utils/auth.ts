@@ -1,5 +1,5 @@
 // Password constants
-const SITE_PASSWORD = 'Letswin!';
+const SITE_PASSWORD = 'bDL-YPzMM7wRPTC9d3mm';
 const ADMIN_PASSWORD = 'Victory!';
 
 // Site authentication
