@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Postcode Territory Manager",
-  description: "Australian Postcode Territory Manager",
+  title: "ASET - Ailo Sales Enablement Tool",
+  description: "Ailo Sales Enablement Tool - Australian Postcode Territory Manager",
 };
 
 export default function RootLayout({

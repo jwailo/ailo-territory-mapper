@@ -662,7 +662,12 @@ export default function Home() {
 
       <div className="flex-col-layout">
         <header className="bg-[#1A1A2E] px-4 py-3 flex items-center justify-between flex-shrink-0">
-        <h1 className="text-xl font-semibold text-[#EE0B4F]">Australian Postcode Territory Manager</h1>
+        {/* ASET Logo - White version on dark header */}
+        <img
+          src="/ASET-White.png"
+          alt="ASET - Ailo Sales Enablement Tool"
+          style={{ height: '45px', width: 'auto' }}
+        />
         <ModeToggle
           mode={appMode}
           isAdminAuthenticated={adminAuthenticated}

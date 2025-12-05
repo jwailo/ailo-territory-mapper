@@ -29,27 +29,16 @@ export default function SiteLoginScreen({ onAuthenticated }: SiteLoginScreenProp
 
   return (
     <div className="fixed inset-0 bg-gradient-to-br from-[#1A1A2E] to-[#2D2D3A] flex items-center justify-center z-50">
-      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md mx-4">
+      <div className="w-full max-w-md mx-4">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-4">
-            <svg
-              className="w-8 h-8 text-[#EE0B4F]"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-              />
-            </svg>
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Australian Postcode Territory Manager
-          </h1>
-          <p className="text-gray-500 mt-2">Enter password to access the application</p>
+          {/* ASET Logo - White version on dark background */}
+          <img
+            src="/ASET-White.png"
+            alt="ASET"
+            className="mx-auto mb-4"
+            style={{ width: '180px', height: 'auto' }}
+          />
+          <p className="text-gray-400 text-lg">Ailo Sales Enablement Tool</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -63,14 +52,14 @@ export default function SiteLoginScreen({ onAuthenticated }: SiteLoginScreenProp
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter password"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE0B4F] focus:border-[#EE0B4F] text-gray-900 placeholder-gray-400"
+              className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg focus:ring-2 focus:ring-[#EE0B4F] focus:border-[#EE0B4F] text-white placeholder-gray-400"
               autoFocus
               disabled={isSubmitting}
             />
           </div>
 
           {error && (
-            <div className="bg-[#FEE2E8] border border-[#EF4444] border-l-4 text-[#EF4444] px-4 py-3 rounded-lg text-sm flex items-center gap-2">
+            <div className="bg-[#EE0B4F]/20 border border-[#EE0B4F] border-l-4 text-[#EE0B4F] px-4 py-3 rounded-lg text-sm flex items-center gap-2">
               <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                 <path
                   fillRule="evenodd"
