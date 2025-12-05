@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, FormEvent } from 'react';
-import { checkSitePassword, setSiteAuthenticated } from '../utils/auth';
+import { checkSitePassword, setSiteAuthenticated, generateAuthToken } from '../utils/auth';
 
 interface SiteLoginScreenProps {
   onAuthenticated: () => void;
@@ -19,6 +19,7 @@ export default function SiteLoginScreen({ onAuthenticated }: SiteLoginScreenProp
 
     if (checkSitePassword(password)) {
       setSiteAuthenticated();
+      generateAuthToken(); // Generate token for cross-app authentication
       onAuthenticated();
     } else {
       setError('Incorrect password');

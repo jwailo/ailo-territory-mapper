@@ -33,6 +33,7 @@ import {
 import {
   isSiteAuthenticated,
   isAdminAuthenticated,
+  getCaseStudyUrl,
 } from './utils/auth';
 import {
   PostcodeStore,
@@ -548,6 +549,12 @@ export default function Home() {
     setComplianceDrawEnabled(false);
   }, []);
 
+  // Case Study Database handler
+  const handleCaseStudyClick = useCallback(() => {
+    const url = getCaseStudyUrl();
+    window.open(url, '_blank');
+  }, []);
+
   // Compliance zone handlers
   const handleComplianceZoneCreated = useCallback(
     async (polygon: number[][]) => {
@@ -668,12 +675,47 @@ export default function Home() {
           alt="ASET - Ailo Sales Enablement Tool"
           style={{ height: '45px', width: 'auto' }}
         />
-        <ModeToggle
-          mode={appMode}
-          isAdminAuthenticated={adminAuthenticated}
-          onModeChange={handleModeChange}
-          onAdminClick={handleAdminModeClick}
-        />
+        <div className="flex items-center gap-3">
+          {/* Case Study Database button */}
+          <button
+            onClick={handleCaseStudyClick}
+            className="px-4 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-white/10 transition-all duration-200 flex items-center gap-2"
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+              />
+            </svg>
+            Case Study Database
+            <svg
+              className="w-3 h-3"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+              />
+            </svg>
+          </button>
+          <ModeToggle
+            mode={appMode}
+            isAdminAuthenticated={adminAuthenticated}
+            onModeChange={handleModeChange}
+            onAdminClick={handleAdminModeClick}
+          />
+        </div>
       </header>
 
       {/* Collapsible Control Panel */}

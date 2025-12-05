@@ -43,3 +43,26 @@ export function clearAdminAuthenticated(): void {
     sessionStorage.removeItem('adminAuthenticated');
   }
 }
+
+// Cross-app authentication token
+const AUTH_SECRET = 'ailo-sales-2024';
+
+export function generateAuthToken(): string {
+  if (typeof window === 'undefined') return '';
+
+  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+  const token = btoa(`${AUTH_SECRET}-${today}`); // base64 encode
+  sessionStorage.setItem('aset-auth-token', token);
+  return token;
+}
+
+export function getAuthToken(): string {
+  if (typeof window === 'undefined') return '';
+  return sessionStorage.getItem('aset-auth-token') || '';
+}
+
+export function getCaseStudyUrl(): string {
+  const token = getAuthToken();
+  // Placeholder URL for now - will be updated with real URL
+  return `#?auth=${token}`;
+}
