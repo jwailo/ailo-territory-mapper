@@ -27,7 +27,6 @@ import {
 import { getPostcodesInPolygon, assignPostcodes } from '../utils/territoryAssignment';
 import { getCompaniesInPolygon, analyzeArea } from '../utils/areaAnalysis';
 import CompanyLayer from './CompanyLayer';
-import HeatMapLayer from './HeatMapLayer';
 import ComplianceZoneLayer from './ComplianceZoneLayer';
 import ComplianceDrawControl from './ComplianceDrawControl';
 import TerritoryPolygonLayer from './TerritoryPolygonLayer';
@@ -47,7 +46,6 @@ interface MapProps {
   filteredCompanies: CompanyData[];
   mode: AppMode;
   assignmentMode: AssignmentMode;
-  showHeatMap: boolean;
   // Compliance zone props
   complianceZones: ComplianceZone[];
   showComplianceZones: boolean;
@@ -275,7 +273,6 @@ export default function Map({
   filteredCompanies,
   mode,
   assignmentMode,
-  showHeatMap,
   complianceZones,
   showComplianceZones,
   complianceDrawEnabled,
@@ -350,12 +347,6 @@ export default function Map({
         companies={filteredCompanies}
         onAnalysis={onAreaAnalysis}
         enabled={isViewMode}
-      />
-
-      {/* Heat map layer in view mode */}
-      <HeatMapLayer
-        companies={filteredCompanies}
-        visible={isViewMode && showHeatMap}
       />
 
       {/* Compliance zone display layer */}

@@ -112,7 +112,6 @@ export default function Home() {
   const [assignmentMode, setAssignmentMode] = useState<AssignmentMode>('fill-unassigned');
 
   // View mode analysis state
-  const [showHeatMap, setShowHeatMap] = useState(false);
   const [areaAnalysisResult, setAreaAnalysisResult] = useState<AreaAnalysisResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
@@ -762,21 +761,6 @@ export default function Home() {
                     />
                   </div>
                   <div className="lg:col-span-1 space-y-3">
-                    {/* Heat Map Toggle */}
-                    <div className="bg-white border border-gray-200 rounded-lg p-3">
-                      <label className="flex items-center gap-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={showHeatMap}
-                          onChange={(e) => setShowHeatMap(e.target.checked)}
-                          className="h-5 w-5 text-[#EE0B4F] focus:ring-[#EE0B4F] border-gray-300 rounded accent-[#EE0B4F]"
-                        />
-                        <div>
-                          <span className="text-sm font-medium text-gray-800">Show PUM Heat Map</span>
-                          <p className="text-xs text-gray-500">Visualize company density by PUM</p>
-                        </div>
-                      </label>
-                    </div>
                     {/* Compliance Zones Toggle */}
                     <div className="bg-white border border-gray-200 rounded-lg p-3">
                       <label className="flex items-center gap-3 cursor-pointer">
@@ -928,7 +912,6 @@ export default function Home() {
           filteredCompanies={filteredCompanies}
           mode={appMode}
           assignmentMode={assignmentMode}
-          showHeatMap={showHeatMap}
           complianceZones={complianceZones}
           showComplianceZones={showComplianceZones || complianceDrawEnabled}
           complianceDrawEnabled={complianceDrawEnabled}

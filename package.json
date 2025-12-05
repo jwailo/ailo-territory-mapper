@@ -19,7 +19,6 @@
     "dotenv": "^17.2.3",
     "leaflet": "^1.9.4",
     "leaflet-draw": "^1.0.4",
-    "leaflet.heat": "^0.2.0",
     "leaflet.markercluster": "^1.5.3",
     "next": "16.0.5",
     "papaparse": "^5.5.3",
