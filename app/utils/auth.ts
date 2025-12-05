@@ -63,6 +63,5 @@ export function getAuthToken(): string {
 
 export function getCaseStudyUrl(): string {
   const token = getAuthToken();
-  // Placeholder URL for now - will be updated with real URL
-  return `#?auth=${token}`;
+  return `https://case-study-database-ailo.vercel.app/login?auth=${token}`;
 }
