@@ -552,7 +552,7 @@ export default function Home() {
   // Case Study Database handler
   const handleCaseStudyClick = useCallback(() => {
     const url = getCaseStudyUrl();
-    window.open(url, '_blank');
+    window.location.href = url;
   }, []);
 
   // Compliance zone handlers
