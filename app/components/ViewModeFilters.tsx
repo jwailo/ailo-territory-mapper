@@ -9,6 +9,7 @@ import {
   DEFAULT_COMPANY_FILTERS,
   LIFECYCLE_COLORS,
 } from '../types';
+import OwnerAvatar from './OwnerAvatar';
 
 interface ViewModeFiltersProps {
   companies: Record<string, CompanyData>;
@@ -168,20 +169,22 @@ export default function ViewModeFilters({
           <label className="block text-xs font-medium text-gray-700 mb-1">
             Owner ({filters.owners.length > 0 ? filters.owners.length : 'All'})
           </label>
-          <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
+          <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
             {owners.map((owner) => {
               const isSelected = filters.owners.includes(owner);
               return (
                 <button
                   key={owner}
                   onClick={() => handleOwnerToggle(owner)}
-                  className={`px-2 py-1 text-xs rounded-full transition-colors ${
+                  className={`flex items-center gap-1.5 px-2 py-1 text-xs rounded-full transition-colors ${
                     isSelected
                       ? 'bg-[#EE0B4F] text-white'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
+                  title={owner}
                 >
-                  {owner}
+                  <OwnerAvatar ownerName={owner} size="sm" />
+                  <span className="max-w-[80px] truncate">{owner.split(' ')[0]}</span>
                 </button>
               );
             })}

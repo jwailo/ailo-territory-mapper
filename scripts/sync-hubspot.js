@@ -297,6 +297,8 @@ async function uploadBatch(batch, batchNumber, totalBatches) {
   return { success: batch.length, errors: 0 };
 }
 
+// Note: syncToSupabase kept for potential future use (batch sync alternative)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function syncToSupabase(companies) {
   console.log(`Syncing ${companies.length} companies to Supabase...`);
 

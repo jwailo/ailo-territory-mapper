@@ -128,7 +128,8 @@ export function deleteTerritory(
   }
 
   // Remove territory
-  const { [id]: removed, ...remainingTerritories } = territories;
+  const { [id]: _removed, ...remainingTerritories } = territories;
+  void _removed; // Destructure to remove, value not needed
 
   return {
     territories: remainingTerritories,
@@ -243,7 +244,7 @@ export function importStateJSON(file: File): Promise<SavedTerritoryState> {
         }
 
         resolve(data);
-      } catch (error) {
+      } catch {
         reject(new Error('Invalid JSON file'));
       }
     };

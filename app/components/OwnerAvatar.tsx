@@ -65,6 +65,7 @@ export default function OwnerAvatar({ ownerName, size = 'md' }: OwnerAvatarProps
   }
 
   return (
+    // eslint-disable-next-line @next/next/no-img-element
     <img
       src={imagePath}
       alt={ownerName}
@@ -80,10 +81,8 @@ export default function OwnerAvatar({ ownerName, size = 'md' }: OwnerAvatarProps
         // Try next extension
         const nextIndex = extensionIndex + 1;
         if (nextIndex < IMAGE_EXTENSIONS.length) {
-          console.log(`Trying next extension for ${ownerName}: .${IMAGE_EXTENSIONS[nextIndex]}`);
           setExtensionIndex(nextIndex);
         } else {
-          console.log(`No image found for: ${ownerName} (tried all extensions)`);
           setImageError(true);
         }
       }}

@@ -191,15 +191,16 @@ export interface RawCompanyCSVRow {
   'Estimated PUM': string;
 }
 
+// Ailo Brand Colors for lifecycle stages
 export const LIFECYCLE_COLORS: Record<LifecycleStage, string> = {
-  Target: '#6B7280',      // Gray
-  Lead: '#3B82F6',        // Blue
-  MQL: '#8B5CF6',         // Purple
-  SQL: '#EC4899',         // Pink
-  Opportunity: '#F59E0B', // Amber
-  Customer: '#22C55E',    // Green
-  Evangelist: '#14B8A6',  // Teal
-  Other: '#9CA3AF',       // Light Gray
+  Target: '#F59E0B',      // Amber/Orange - Target
+  Lead: '#6e8fcb',        // Ailo Blue - Engaged
+  MQL: '#6e8fcb',         // Ailo Blue - Engaged
+  SQL: '#6e8fcb',         // Ailo Blue - Engaged
+  Opportunity: '#6e8fcb', // Ailo Blue - Engaged
+  Customer: '#EE0B4F',    // Ailo Pink - Customer
+  Evangelist: '#EE0B4F',  // Ailo Pink - Customer
+  Other: '#9CA3AF',       // Grey - Other
 };
 
 export function getLifecycleColor(stage: LifecycleStage): string {

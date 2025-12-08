@@ -1,621 +1,216 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
-import dynamic from 'next/dynamic';
-import { loadPostcodes } from './utils/loadPostcodes';
-import { loadCompanies, calculateCompanyStats } from './utils/loadCompanies';
-import { calculateStats } from './utils/territoryAssignment';
-import {
-  updateCompanyTerritories,
-  calculateTerritoryPUM,
-} from './utils/pumCalculations';
-import {
-  createTerritory,
-  updateTerritory,
-  deleteTerritory,
-  saveToLocalStorage,
-  loadFromLocalStorage,
-  applyLoadedState,
-} from './utils/territoryManagement';
-import {
-  loadTerritoriesFromSupabase,
-  loadPostcodeAssignmentsFromSupabase,
-  saveTerritoryToSupabase,
-  updateTerritoryInSupabase,
-  deleteTerritoryFromSupabase,
-  savePostcodeAssignmentsToSupabase,
-  clearPostcodeAssignmentsFromSupabase,
-  loadComplianceZonesFromSupabase,
-  saveComplianceZoneToSupabase,
-  deleteComplianceZoneFromSupabase,
-  cleanupCorruptedPostcodeAssignments,
-} from './utils/supabaseData';
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { MapPin, FolderOpen, Calculator, ArrowRight, Sparkles } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import {
   isSiteAuthenticated,
-  isAdminAuthenticated,
   getCaseStudyUrl,
+  checkUrlAuthToken,
+  generateAuthToken,
 } from './utils/auth';
-import {
-  PostcodeStore,
-  Territory,
-  AssignmentResult,
-  PostcodeData,
-  AustralianState,
-  CompanyStore,
-  CompanyData,
-  LifecycleStage,
-  CoordSource,
-  PUMSummary,
-  SavedTerritoryState,
-  AppMode,
-  CompanyFilters,
-  DEFAULT_COMPANY_FILTERS,
-  filterCompanies,
-  AssignmentMode,
-  AreaAnalysisResult,
-  ComplianceZone,
-} from './types';
-import StatsPanel from './components/StatsPanel';
-import CompanyStatsPanel from './components/CompanyStatsPanel';
-import PUMStatsPanel from './components/PUMStatsPanel';
-import TerritorySelector from './components/TerritorySelector';
-import TerritoryManagementPanel from './components/TerritoryManagementPanel';
-import StateSelector from './components/StateSelector';
-import Toolbar from './components/Toolbar';
-import ModeToggle from './components/ModeToggle';
-import ViewModeFilters from './components/ViewModeFilters';
-import AssignmentModeSelector from './components/AssignmentModeSelector';
-import AreaAnalysisPanel from './components/AreaAnalysisPanel';
 import SiteLoginScreen from './components/SiteLoginScreen';
-import AdminPasswordModal from './components/AdminPasswordModal';
-import ComplianceStatsBar from './components/ComplianceStatsBar';
 
-// Dynamic import for Map to avoid SSR issues with Leaflet
-const Map = dynamic(() => import('./components/Map'), {
-  ssr: false,
-  loading: () => (
-    <div className="h-full w-full flex items-center justify-center bg-gray-100">
-      <p className="text-gray-500">Loading map...</p>
+const tools = [
+  {
+    title: 'Territory Map',
+    description: 'Explore company locations and territories across the region',
+    icon: MapPin,
+    href: '/map',
+    internal: true,
+  },
+  {
+    title: 'Case Study Database',
+    description: 'Search and share customer success stories that close deals',
+    icon: FolderOpen,
+    href: 'case-studies', // Will be dynamically generated with auth token
+    internal: false,
+  },
+  {
+    title: 'True Cost Calculator',
+    description: 'See all True Cost Calculator completions',
+    icon: Calculator,
+    href: '#',
+    internal: true,
+    comingSoon: true,
+  },
+];
+
+function ToolCard({
+  title,
+  description,
+  icon: Icon,
+  href,
+  internal,
+  comingSoon,
+  onCaseStudyClick,
+}: {
+  title: string;
+  description: string;
+  icon: LucideIcon;
+  href: string;
+  internal: boolean;
+  comingSoon?: boolean;
+  onCaseStudyClick?: () => void;
+}) {
+  const [isHovered, setIsHovered] = useState(false);
+  const [isClicked, setIsClicked] = useState(false);
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (comingSoon) {
+      e.preventDefault();
+      return;
+    }
+
+    if (!internal && onCaseStudyClick) {
+      e.preventDefault();
+      setIsClicked(true);
+      setTimeout(() => {
+        setIsClicked(false);
+        onCaseStudyClick();
+      }, 400);
+      return;
+    }
+
+    if (internal) {
+      setIsClicked(true);
+      setTimeout(() => {
+        setIsClicked(false);
+      }, 400);
+    }
+  };
+
+  const CardContent = (
+    <div
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className={`group relative block h-full ${comingSoon ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+    >
+      <div className={`relative h-full overflow-hidden rounded-2xl border-2 border-gray-200 bg-white p-8 transition-all duration-300 ${
+        comingSoon
+          ? 'opacity-60'
+          : 'group-hover:border-[#EE0B4F] group-hover:shadow-2xl group-hover:shadow-[#EE0B4F]/20 group-hover:-translate-y-1'
+      }`}>
+        <div className={`absolute inset-0 bg-gradient-to-br from-[#EE0B4F]/10 via-transparent to-[#6e8fcb]/10 opacity-0 transition-opacity duration-500 ${!comingSoon && 'group-hover:opacity-100'}`} />
+
+        <div className="relative flex flex-col h-full">
+          <div className="relative mb-6 inline-flex">
+            <div
+              className={`flex h-16 w-16 items-center justify-center rounded-xl transition-all duration-700 ease-out ${
+                isClicked ? 'bg-[#EE0B4F] scale-150' : isHovered && !comingSoon ? 'bg-[#EE0B4F] scale-110' : 'bg-[#1A1A2E]'
+              }`}
+              style={{
+                transform: isClicked ? 'scale(1.5) rotate(360deg)' : isHovered && !comingSoon ? 'scale(1.1)' : 'scale(1)',
+                transition: 'all 700ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+              }}
+            >
+              <Icon
+                className={`h-8 w-8 transition-all duration-500 ${
+                  isClicked ? 'text-white scale-125' : 'text-white'
+                }`}
+                strokeWidth={1.5}
+              />
+            </div>
+          </div>
+
+          <h3 className="mb-3 text-2xl font-bold text-gray-900">
+            {title.split(' ').map((word, i) => (
+              <span
+                key={i}
+                className="inline-block mr-2 transition-all duration-500"
+                style={{
+                  color: isClicked ? '#EE0B4F' : 'inherit',
+                  transform: isClicked ? 'translateY(-4px) scale(1.05)' : 'none',
+                  transitionDelay: isClicked ? `${i * 100}ms` : '0ms',
+                }}
+              >
+                {word}
+              </span>
+            ))}
+            <span className={`block h-0.5 w-0 bg-[#EE0B4F] transition-all duration-300 ${!comingSoon && 'group-hover:w-full'}`} />
+          </h3>
+
+          <p className="mb-6 text-gray-600 leading-relaxed flex-1">{description}</p>
+
+          {comingSoon ? (
+            <div className="flex items-center gap-2 text-sm font-semibold text-gray-400">
+              <span>Coming soon</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-sm font-semibold text-[#EE0B4F] opacity-0 transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-2">
+              <span>Launch tool</span>
+              <ArrowRight className="h-4 w-4" />
+            </div>
+          )}
+        </div>
+      </div>
     </div>
-  ),
-});
+  );
+
+  if (comingSoon) {
+    return <div className="h-full">{CardContent}</div>;
+  }
+
+  if (internal) {
+    return (
+      <Link href={href} onClick={handleClick} className="h-full block">
+        {CardContent}
+      </Link>
+    );
+  }
+
+  return (
+    <button onClick={handleClick} className="h-full block w-full text-left">
+      {CardContent}
+    </button>
+  );
+}
 
 export default function Home() {
-  // Authentication state
-  const [siteAuthenticated, setSiteAuthenticated] = useState(false);
-  const [adminAuthenticated, setAdminAuthenticatedState] = useState(false);
-  const [showAdminModal, setShowAdminModal] = useState(false);
-  const [authChecked, setAuthChecked] = useState(false);
-
-  const [data, setData] = useState<PostcodeStore | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [territories, setTerritories] = useState<Record<string, Territory>>({});
-  const [selectedTerritory, setSelectedTerritory] = useState<Territory | null>(null);
-  const [selectedState, setSelectedState] = useState<AustralianState>('ALL');
-  const [lastResult, setLastResult] = useState<AssignmentResult | null>(null);
-  const [territoryCounts, setTerritoryCounts] = useState<Record<string, number>>({});
-  const [clickToAssign, setClickToAssign] = useState(false);
-  const [showUnassignedOnly, setShowUnassignedOnly] = useState(false);
-  const [updateKey, setUpdateKey] = useState(0);
-  const [stateStats, setStateStats] = useState<{
-    total: number;
-    assigned: number;
-    unassigned: number;
-  }>({ total: 0, assigned: 0, unassigned: 0 });
-
-  // App mode state
-  const [appMode, setAppMode] = useState<AppMode>('view');
-  const [companyFilters, setCompanyFilters] = useState<CompanyFilters>(DEFAULT_COMPANY_FILTERS);
-
-  // Assignment mode state (admin mode)
-  const [assignmentMode, setAssignmentMode] = useState<AssignmentMode>('fill-unassigned');
-
-  // View mode analysis state
-  const [areaAnalysisResult, setAreaAnalysisResult] = useState<AreaAnalysisResult | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-
-  // Compliance zone state
-  const [complianceZones, setComplianceZones] = useState<ComplianceZone[]>([]);
-  const [showComplianceZones, setShowComplianceZones] = useState(false);
-  const [complianceDrawEnabled, setComplianceDrawEnabled] = useState(false);
-
-  // Collapsible panel state
-  const [filtersCollapsed, setFiltersCollapsed] = useState(false);
-
-  // Check authentication on mount
-  useEffect(() => {
-    setSiteAuthenticated(isSiteAuthenticated());
-    setAdminAuthenticatedState(isAdminAuthenticated());
-    setAuthChecked(true);
-  }, []);
-
-  // Company state
-  const [companyData, setCompanyData] = useState<CompanyStore | null>(null);
-  const [showCompanies, setShowCompanies] = useState(true);
-  const [companyStats, setCompanyStats] = useState<{
-    total: number;
-    withCoords: number;
-    missingCoords: number;
-    byLifecycle: Record<LifecycleStage, number>;
-    byCoordSource: Record<CoordSource, number>;
-  }>({
-    total: 0,
-    withCoords: 0,
-    missingCoords: 0,
-    byLifecycle: {
-      Target: 0,
-      Lead: 0,
-      MQL: 0,
-      SQL: 0,
-      Opportunity: 0,
-      Customer: 0,
-      Evangelist: 0,
-      Other: 0,
-    },
-    byCoordSource: {
-      hubspot: 0,
-      geocoded: 0,
-      postcode: 0,
-      missing: 0,
-    },
+  // Use lazy initialization to check auth status synchronously on first render
+  const [authState, setAuthState] = useState<{ authenticated: boolean; checked: boolean }>(() => {
+    if (typeof window === 'undefined') {
+      return { authenticated: false, checked: false };
+    }
+    // First check for auth token in URL (cross-app authentication)
+    if (checkUrlAuthToken()) {
+      return { authenticated: true, checked: true };
+    }
+    // Fall back to session storage check
+    return { authenticated: isSiteAuthenticated(), checked: true };
   });
 
-  // PUM summary state
-  const [pumSummary, setPumSummary] = useState<PUMSummary>({
-    byTerritory: {},
-    unassigned: { pum: 0, companyCount: 0 },
-    total: { pum: 0, companyCount: 0 },
-  });
+  const siteAuthenticated = authState.authenticated;
+  const authChecked = authState.checked;
+  const setSiteAuthenticated = (val: boolean) => setAuthState((prev) => ({ ...prev, authenticated: val }));
 
-  // Filtered companies for view mode
-  const filteredCompanies = useMemo(() => {
-    if (!companyData) return [];
-    return filterCompanies(companyData.companies, companyFilters, selectedState);
-  }, [companyData, companyFilters, selectedState]);
-
-  // Calculate filtered stats
-  const filteredStats = useMemo(() => {
-    const totalCount = companyData
-      ? Object.values(companyData.companies).filter(
-          (c) => selectedState === 'ALL' || c.state === selectedState
-        ).length
-      : 0;
-    const filteredPUM = filteredCompanies.reduce((sum, c) => sum + (c.pum || 0), 0);
-    return {
-      filteredCount: filteredCompanies.length,
-      totalCount,
-      filteredPUM,
-    };
-  }, [companyData, filteredCompanies, selectedState]);
-
-  // Load data from Supabase (with localStorage fallback for territories)
+  // On client side, ensure auth is checked if SSR returned unchecked
   useEffect(() => {
-    loadPostcodes()
-      .then(async (result) => {
-        // Try to load territories and assignments from Supabase first
-        let loadedTerritories: Record<string, Territory> = {};
-        let postcodeAssignments: Record<string, string> = {};
-
-        try {
-          // Run cleanup for corrupted postcode assignments (one-time fix)
-          const cleanupResult = await cleanupCorruptedPostcodeAssignments();
-          if (cleanupResult.fixed > 0) {
-            console.log(`Cleanup: Fixed ${cleanupResult.fixed} corrupted postcode assignments`);
-          }
-
-          // Load from Supabase
-          loadedTerritories = await loadTerritoriesFromSupabase();
-          postcodeAssignments = await loadPostcodeAssignmentsFromSupabase();
-
-          // Apply assignments to postcodes
-          if (Object.keys(postcodeAssignments).length > 0) {
-            let appliedCount = 0;
-            let noMatchCount = 0;
-            let noTerritoryCount = 0;
-
-            // Log first few assignment keys to debug format
-            const assignmentKeys = Object.keys(postcodeAssignments);
-            console.log('Sample assignment keys:', JSON.stringify(assignmentKeys.slice(0, 10)));
-
-            // Log first few postcode keys to compare format
-            const postcodeKeys = Object.values(result.postcodes).slice(0, 10).map(p => `${p.postcode}-${p.state}`);
-            console.log('Sample postcode keys:', JSON.stringify(postcodeKeys));
-
-            // Find any matching key to debug
-            const firstAssignmentKey = assignmentKeys[0];
-            console.log('First assignment key details:', JSON.stringify({
-              key: firstAssignmentKey,
-              territoryId: postcodeAssignments[firstAssignmentKey]
-            }));
-
-            Object.values(result.postcodes).forEach((postcode) => {
-              // Use postcode-state as composite key to match assignment lookup
-              const postcodeKey = `${postcode.postcode}-${postcode.state}`;
-              const territoryId = postcodeAssignments[postcodeKey];
-              if (territoryId) {
-                const territory = loadedTerritories[territoryId];
-                if (territory) {
-                  postcode.territory = territory.name;
-                  appliedCount++;
-                } else {
-                  noTerritoryCount++;
-                }
-              } else {
-                noMatchCount++;
-              }
-            });
-            console.log(`Applied ${appliedCount} postcode assignments from Supabase (${noMatchCount} no match, ${noTerritoryCount} no territory)`);
-          }
-
-          console.log(`Loaded ${Object.keys(loadedTerritories).length} territories from Supabase`);
-        } catch (err) {
-          console.error('Error loading from Supabase, falling back to localStorage:', err);
+    if (!authState.checked) {
+      // Use queueMicrotask to defer state update and satisfy lint rules
+      queueMicrotask(() => {
+        if (checkUrlAuthToken()) {
+          setAuthState({ authenticated: true, checked: true });
+        } else {
+          setAuthState({ authenticated: isSiteAuthenticated(), checked: true });
         }
-
-        // Fall back to localStorage if Supabase is empty
-        if (Object.keys(loadedTerritories).length === 0) {
-          const savedState = loadFromLocalStorage();
-          if (savedState) {
-            loadedTerritories = savedState.territories;
-            applyLoadedState(savedState, result.postcodes);
-            console.log('Loaded territories from localStorage');
-          }
-        }
-
-        setTerritories(loadedTerritories);
-        setData(result);
-
-        // Try to load companies (will use postcode lookup for fallback)
-        try {
-          const companies = await loadCompanies(result.postcodes);
-          setCompanyData(companies);
-        } catch (err) {
-          console.log('Company data not loaded:', err);
-          // Companies are optional, so we don't set error
-        }
-
-        // Load compliance zones from Supabase
-        try {
-          const zones = await loadComplianceZonesFromSupabase();
-          setComplianceZones(zones);
-          console.log(`Loaded ${zones.length} compliance zones from Supabase`);
-        } catch (err) {
-          console.log('Compliance zones not loaded:', err);
-        }
-
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError(err.message);
-        setLoading(false);
       });
-  }, []);
+    }
+  }, [authState.checked]);
 
-  // Save to localStorage whenever territories or postcode assignments change
+  // Generate auth token when authenticated
   useEffect(() => {
-    if (data && Object.keys(territories).length > 0) {
-      saveToLocalStorage(territories, data.postcodes);
+    if (siteAuthenticated) {
+      generateAuthToken();
     }
-  }, [territories, data, updateKey]);
-
-  const updateStats = useCallback(() => {
-    if (data) {
-      const stats = calculateStats(data.postcodes, selectedState);
-      setStateStats({
-        total: stats.total,
-        assigned: stats.assigned,
-        unassigned: stats.unassigned,
-      });
-      setTerritoryCounts(stats.territoryCounts);
-      setUpdateKey((k) => k + 1);
-
-      // Update company territories and PUM when postcodes change
-      if (companyData) {
-        updateCompanyTerritories(data.postcodes, companyData.companies);
-        const pumStats = calculateTerritoryPUM(companyData.companies, territories, selectedState);
-        setPumSummary(pumStats);
-      }
-    }
-
-    if (companyData) {
-      const cStats = calculateCompanyStats(companyData.companies, selectedState);
-      setCompanyStats(cStats);
-    }
-  }, [data, companyData, territories, selectedState]);
-
-  // Update stats when state or territories change
-  useEffect(() => {
-    updateStats();
-  }, [selectedState, territories, updateStats]);
-
-  const handleAssignment = useCallback(
-    async (result: AssignmentResult) => {
-      setLastResult(result);
-      updateStats();
-      setTimeout(() => setLastResult(null), 5000);
-
-      // Save assignments to Supabase
-      if (selectedTerritory && data) {
-        // Collect all postcodes that were assigned or reassigned
-        const assignedPostcodes = [
-          ...result.assigned,
-          ...result.reassigned.map((r) => r.postcode),
-        ];
-
-        if (assignedPostcodes.length > 0) {
-          // Group postcodes by state for Supabase
-          const byState: Record<string, string[]> = {};
-          for (const postcodeId of assignedPostcodes) {
-            const postcodeData = data.postcodes[postcodeId];
-            if (postcodeData) {
-              const state = postcodeData.state;
-              if (!byState[state]) byState[state] = [];
-              byState[state].push(postcodeId);
-            }
-          }
-
-          // Save each state group to Supabase
-          for (const [state, postcodes] of Object.entries(byState)) {
-            await savePostcodeAssignmentsToSupabase(
-              postcodes,
-              selectedTerritory.id,
-              state
-            );
-          }
-        }
-      }
-    },
-    [updateStats, selectedTerritory, data]
-  );
-
-  const handleClickAssign = useCallback(
-    async (postcode: PostcodeData) => {
-      if (!selectedTerritory || !data) return;
-
-      // Check if already assigned to a different territory
-      if (postcode.territory && postcode.territory !== selectedTerritory.name) {
-        const confirmed = confirm(
-          `Reassign ${postcode.postcode} from ${postcode.territory} to ${selectedTerritory.name}?`
-        );
-        if (!confirmed) return;
-      }
-
-      // Assign the postcode
-      postcode.territory = selectedTerritory.name;
-      updateStats();
-
-      // Save to Supabase
-      await savePostcodeAssignmentsToSupabase(
-        [postcode.postcode],
-        selectedTerritory.id,
-        postcode.state
-      );
-
-      setLastResult({
-        assigned: [postcode.postcode],
-        skipped: [],
-        reassigned: [],
-      });
-      setTimeout(() => setLastResult(null), 3000);
-    },
-    [selectedTerritory, data, updateStats]
-  );
-
-  const handleAreaAnalysis = useCallback(
-    (result: AreaAnalysisResult | null) => {
-      setAreaAnalysisResult(result);
-    },
-    []
-  );
-
-  const handleClearTerritory = useCallback(
-    async (territoryName: string, count: number) => {
-      updateStats();
-      setLastResult({
-        assigned: [],
-        skipped: [],
-        reassigned: [],
-      });
-
-      // Find territory ID by name and clear from Supabase
-      const territory = Object.values(territories).find((t) => t.name === territoryName);
-      if (territory) {
-        await clearPostcodeAssignmentsFromSupabase(
-          territory.id,
-          selectedState !== 'ALL' ? selectedState : undefined
-        );
-      }
-
-      alert(`Cleared ${count} postcodes from ${territoryName}`);
-    },
-    [updateStats, territories, selectedState]
-  );
-
-  const handleCreateTerritory = useCallback(
-    async (name: string, color: string) => {
-      try {
-        const result = createTerritory(name, territories, color);
-        setTerritories(result.territories);
-
-        // Save to Supabase
-        await saveTerritoryToSupabase(result.newTerritory);
-      } catch (err) {
-        alert((err as Error).message);
-      }
-    },
-    [territories]
-  );
-
-  const handleUpdateTerritory = useCallback(
-    async (id: string, updates: { name?: string; color?: string }) => {
-      if (!data) return;
-      try {
-        const result = updateTerritory(id, updates, territories, data.postcodes);
-        setTerritories(result.territories);
-        // If the selected territory was updated, update the selection
-        if (selectedTerritory?.id === id) {
-          setSelectedTerritory(result.territories[id]);
-        }
-        updateStats();
-
-        // Update in Supabase
-        await updateTerritoryInSupabase(result.territories[id]);
-      } catch (err) {
-        alert((err as Error).message);
-      }
-    },
-    [territories, data, selectedTerritory, updateStats]
-  );
-
-  const handleDeleteTerritory = useCallback(
-    async (id: string) => {
-      if (!data) return;
-      try {
-        const result = deleteTerritory(id, territories, data.postcodes);
-        setTerritories(result.territories);
-        // If the selected territory was deleted, clear the selection
-        if (selectedTerritory?.id === id) {
-          setSelectedTerritory(null);
-        }
-        updateStats();
-
-        // Delete from Supabase (this also clears postcode assignments)
-        await deleteTerritoryFromSupabase(id);
-
-        if (result.clearedCount > 0) {
-          alert(`Territory deleted. Cleared ${result.clearedCount} postcode assignments.`);
-        }
-      } catch (err) {
-        alert((err as Error).message);
-      }
-    },
-    [territories, data, selectedTerritory, updateStats]
-  );
-
-  const handleImportState = useCallback(
-    async (savedState: SavedTerritoryState) => {
-      if (!data) return;
-      setTerritories(savedState.territories);
-      applyLoadedState(savedState, data.postcodes);
-      updateStats();
-
-      // Sync imported state to Supabase
-      // Save all territories
-      for (const territory of Object.values(savedState.territories)) {
-        await saveTerritoryToSupabase(territory);
-      }
-
-      // Save all postcode assignments grouped by territory and state
-      const assignmentsByTerritoryAndState: Record<string, Record<string, string[]>> = {};
-      for (const [postcodeId, territoryId] of Object.entries(savedState.postcodeAssignments)) {
-        const postcodeData = data.postcodes[postcodeId];
-        if (postcodeData) {
-          if (!assignmentsByTerritoryAndState[territoryId]) {
-            assignmentsByTerritoryAndState[territoryId] = {};
-          }
-          const state = postcodeData.state;
-          if (!assignmentsByTerritoryAndState[territoryId][state]) {
-            assignmentsByTerritoryAndState[territoryId][state] = [];
-          }
-          assignmentsByTerritoryAndState[territoryId][state].push(postcodeId);
-        }
-      }
-
-      // Save grouped assignments
-      for (const [territoryId, byState] of Object.entries(assignmentsByTerritoryAndState)) {
-        for (const [state, postcodes] of Object.entries(byState)) {
-          await savePostcodeAssignmentsToSupabase(postcodes, territoryId, state);
-        }
-      }
-    },
-    [data, updateStats]
-  );
-
-  // Handle admin mode authentication and switching
-  const handleAdminModeClick = useCallback(() => {
-    setShowAdminModal(true);
-  }, []);
-
-  const handleAdminAuthenticated = useCallback(() => {
-    setAdminAuthenticatedState(true);
-    setAppMode('admin');
-  }, []);
-
-  const handleModeChange = useCallback((mode: AppMode) => {
-    setAppMode(mode);
-    // Disable compliance draw when switching modes
-    setComplianceDrawEnabled(false);
-  }, []);
+  }, [siteAuthenticated]);
 
   // Case Study Database handler
-  const handleCaseStudyClick = useCallback(() => {
+  const handleCaseStudyClick = () => {
     const url = getCaseStudyUrl();
     window.location.href = url;
-  }, []);
-
-  // Compliance zone handlers
-  const handleComplianceZoneCreated = useCallback(
-    async (polygon: number[][]) => {
-      const id = `cz_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const newZone: ComplianceZone = {
-        id,
-        polygon,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      // Add to local state
-      setComplianceZones((prev) => [...prev, newZone]);
-
-      // Save to Supabase
-      const success = await saveComplianceZoneToSupabase(id, polygon);
-      if (!success) {
-        alert('Failed to save compliance zone. Please try again.');
-        setComplianceZones((prev) => prev.filter((z) => z.id !== id));
-      }
-    },
-    []
-  );
-
-  const handleComplianceZoneDeleted = useCallback(
-    async (zoneId: string) => {
-      // Remove from local state
-      setComplianceZones((prev) => prev.filter((z) => z.id !== zoneId));
-
-      // Delete from Supabase
-      const success = await deleteComplianceZoneFromSupabase(zoneId);
-      if (!success) {
-        alert('Failed to delete compliance zone from database.');
-      }
-    },
-    []
-  );
-
-  // Initial stats calculation
-  useEffect(() => {
-    if (data) {
-      const stats = calculateStats(data.postcodes, selectedState);
-      setStateStats({
-        total: stats.total,
-        assigned: stats.assigned,
-        unassigned: stats.unassigned,
-      });
-      setTerritoryCounts(stats.territoryCounts);
-
-      // Update company territories and PUM
-      if (companyData) {
-        updateCompanyTerritories(data.postcodes, companyData.companies);
-        const pumStats = calculateTerritoryPUM(companyData.companies, territories, selectedState);
-        setPumSummary(pumStats);
-      }
-    }
-
-    if (companyData) {
-      const cStats = calculateCompanyStats(companyData.companies, selectedState);
-      setCompanyStats(cStats);
-    }
-  }, [data, companyData, territories, selectedState]);
+  };
 
   // Show nothing while checking auth status
   if (!authChecked) {
@@ -631,341 +226,86 @@ export default function Home() {
     return <SiteLoginScreen onAuthenticated={() => setSiteAuthenticated(true)} />;
   }
 
-  if (loading) {
-    return (
-      <div className="h-screen w-screen flex items-center justify-center">
-        <p className="text-gray-500">Loading postcode data...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="h-screen w-screen flex items-center justify-center">
-        <p className="text-red-500">Error: {error}</p>
-      </div>
-    );
-  }
-
-  if (!data) {
-    return (
-      <div className="h-screen w-screen flex items-center justify-center">
-        <p className="text-gray-500">No data available</p>
-      </div>
-    );
-  }
-
-  const isViewMode = appMode === 'view';
-
   return (
-    <>
-      {/* Admin Password Modal - rendered outside main container for proper z-index */}
-      <AdminPasswordModal
-        isOpen={showAdminModal}
-        onClose={() => setShowAdminModal(false)}
-        onAuthenticated={handleAdminAuthenticated}
-      />
-
-      <div className="flex-col-layout">
-        <header className="bg-[#1A1A2E] px-4 py-3 flex items-center justify-between flex-shrink-0">
-        {/* ASET Logo - White version on dark header */}
-        <img
-          src="/ASET-White.png"
-          alt="ASET - Ailo Sales Enablement Tool"
-          style={{ height: '45px', width: 'auto' }}
-        />
-        <div className="flex items-center gap-3">
-          {/* Case Study Database button */}
-          <button
-            onClick={handleCaseStudyClick}
-            className="px-4 py-2 rounded-lg text-sm font-medium bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-all duration-200 flex items-center gap-2"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-              />
-            </svg>
-            Case Study Database
-          </button>
-          <ModeToggle
-            mode={appMode}
-            isAdminAuthenticated={adminAuthenticated}
-            onModeChange={handleModeChange}
-            onAdminClick={handleAdminModeClick}
-          />
+    <div className="min-h-screen flex flex-col bg-gray-50">
+      <header className="relative z-10 bg-[#1A1A2E]">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6 lg:px-8 lg:py-8">
+          <div className="flex items-center gap-4">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/ASET-White.png" alt="ASET" className="h-12 w-auto lg:h-14" />
+          </div>
+          <div className="flex items-center gap-6">
+            <span className="hidden text-sm text-white/70 sm:block">Ailo Sales Team</span>
+          </div>
         </div>
       </header>
 
-      {/* Collapsible Control Panel */}
-      <div className="bg-gray-50 border-b border-gray-200 flex-shrink-0">
-        {/* Toggle Header */}
-        <button
-          onClick={() => setFiltersCollapsed(!filtersCollapsed)}
-          className="w-full px-4 py-2 flex items-center justify-between bg-gradient-to-r from-[#EE0B4F] to-[#c4093f] text-white hover:brightness-110 transition-all"
-        >
-          <span className="font-semibold text-sm">
-            {isViewMode ? 'Filters & Controls' : 'Territory Controls'}
-          </span>
-          <div className="flex items-center gap-2">
-            <span className="text-xs opacity-80">
-              {filtersCollapsed ? 'Click to expand' : 'Click to collapse'}
-            </span>
-            <svg
-              className={`w-4 h-4 transition-transform duration-200 ${
-                filtersCollapsed ? '' : 'rotate-180'
-              }`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 9l-7 7-7-7"
-              />
-            </svg>
-          </div>
-        </button>
+      <section className="relative bg-gradient-to-br from-[#EE0B4F]/15 via-[#EE0B4F]/8 via-50% to-[#6e8fcb]/10">
+        {/* Soft radial overlay for smoother blending */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#6e8fcb]/10 via-transparent to-transparent" />
 
-        {/* Collapsible Content */}
-        <div
-          className={`transition-all duration-300 ease-in-out overflow-hidden ${
-            filtersCollapsed ? 'max-h-0' : 'max-h-[1000px]'
-          }`}
-        >
-          <div className="p-4 space-y-4">
-            {/* State selector is always visible */}
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-              <StateSelector selectedState={selectedState} onSelect={setSelectedState} />
+        {/* Decorative elements with feathered edges */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute -right-1/4 top-0 h-full w-3/4 bg-gradient-to-l from-[#6e8fcb]/8 via-[#6e8fcb]/4 to-transparent skew-x-12 blur-sm" />
+          <div className="absolute -left-1/4 bottom-0 h-2/3 w-2/3 bg-gradient-to-r from-[#EE0B4F]/8 via-[#EE0B4F]/4 to-transparent -skew-x-12 blur-sm" />
+        </div>
 
-              {/* View Mode: Show filters panel and analysis panel */}
-              {isViewMode && companyData && (
-                <>
-                  <div className="lg:col-span-2">
-                    <ViewModeFilters
-                      companies={companyData.companies}
-                      filters={companyFilters}
-                      onFiltersChange={setCompanyFilters}
-                      filteredCount={filteredStats.filteredCount}
-                      totalCount={filteredStats.totalCount}
-                      filteredPUM={filteredStats.filteredPUM}
-                    />
-                  </div>
-                  <div className="lg:col-span-1 space-y-3">
-                    {/* Compliance Zones Toggle */}
-                    <div className="bg-white border border-gray-200 rounded-lg p-3">
-                      <label className="flex items-center gap-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={showComplianceZones}
-                          onChange={(e) => setShowComplianceZones(e.target.checked)}
-                          className="h-5 w-5 text-blue-500 focus:ring-blue-500 border-gray-300 rounded accent-blue-500"
-                        />
-                        <div>
-                          <span className="text-sm font-medium text-gray-800">Show Compliance Zones</span>
-                          <p className="text-xs text-gray-500">
-                            {complianceZones.length} zone{complianceZones.length !== 1 ? 's' : ''} defined
-                          </p>
-                        </div>
-                      </label>
-                    </div>
-                    {/* Area Analysis Panel */}
-                    <AreaAnalysisPanel
-                      result={areaAnalysisResult}
-                      isAnalyzing={isAnalyzing}
-                      onClear={() => setAreaAnalysisResult(null)}
-                    />
-                  </div>
-                </>
-              )}
-
-              {/* Admin Mode: Show territory controls */}
-              {!isViewMode && (
-                <>
-                  <TerritorySelector
-                    territories={territories}
-                    selectedTerritory={selectedTerritory}
-                    onSelect={setSelectedTerritory}
-                  />
-                  <div className="lg:col-span-2">
-                    <TerritoryManagementPanel
-                      territories={territories}
-                      territoryCounts={territoryCounts}
-                      onCreateTerritory={handleCreateTerritory}
-                      onUpdateTerritory={handleUpdateTerritory}
-                      onDeleteTerritory={handleDeleteTerritory}
-                    />
-                  </div>
-                </>
-              )}
+        <div className="relative mx-auto max-w-7xl px-6 lg:px-8">
+          <div className="py-16 lg:py-24">
+            <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-[#EE0B4F]/20 bg-white/80 backdrop-blur-sm px-4 py-2">
+              <Sparkles className="h-4 w-4 text-[#EE0B4F]" />
+              <span className="text-sm font-medium text-gray-600">Your sales toolkit</span>
             </div>
 
-            {/* Admin Mode: Show toolbar and assignment mode */}
-            {!isViewMode && (
-              <div className="flex gap-4 flex-wrap">
-                <div className="flex-1 min-w-0">
-                  <Toolbar
-                    data={data}
-                    territories={territories}
-                    selectedTerritory={selectedTerritory}
-                    selectedState={selectedState}
-                    clickToAssign={clickToAssign}
-                    showUnassignedOnly={showUnassignedOnly}
-                    showCompanies={showCompanies}
-                    companies={companyData?.companies || {}}
-                    companyMissingCount={companyStats.missingCoords}
-                    onClickToAssignToggle={() => setClickToAssign(!clickToAssign)}
-                    onShowUnassignedOnlyToggle={() => setShowUnassignedOnly(!showUnassignedOnly)}
-                    onShowCompaniesToggle={() => setShowCompanies(!showCompanies)}
-                    onClearTerritory={handleClearTerritory}
-                    onImportState={handleImportState}
-                  />
-                </div>
-                <div className="w-72 flex-shrink-0">
-                  <AssignmentModeSelector
-                    mode={assignmentMode}
-                    onModeChange={setAssignmentMode}
-                  />
-                </div>
-                {/* Compliance Zones Tool */}
-                <div className="w-64 flex-shrink-0">
-                  <div className="bg-white border border-gray-200 rounded-lg p-3">
-                    <div className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">
-                      Compliance Zones
-                    </div>
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={complianceDrawEnabled}
-                        onChange={(e) => setComplianceDrawEnabled(e.target.checked)}
-                        className="h-5 w-5 text-blue-500 focus:ring-blue-500 border-gray-300 rounded accent-blue-500"
-                      />
-                      <div>
-                        <span className="text-sm font-medium text-gray-800">Draw Compliance Zones</span>
-                        <p className="text-xs text-gray-500">
-                          {complianceZones.length} zone{complianceZones.length !== 1 ? 's' : ''} saved
-                        </p>
-                      </div>
-                    </label>
-                  </div>
-                </div>
-              </div>
-            )}
+            <h1 className="max-w-4xl text-balance">
+              <span className="block text-5xl font-black tracking-tight text-[#1A1A2E] sm:text-6xl lg:text-7xl xl:text-8xl">
+                Close deals
+              </span>
+              <span className="block text-5xl font-black tracking-tight text-[#EE0B4F] sm:text-6xl lg:text-7xl xl:text-8xl">
+                faster.
+              </span>
+            </h1>
+
+            <p className="mt-8 max-w-xl text-lg text-gray-600 leading-relaxed lg:text-xl">
+              Everything you need to prospect, pitch, and win. Built for the Ailo sales team.
+            </p>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Assignment result notification (admin mode only) */}
-      {!isViewMode && lastResult && (lastResult.assigned.length > 0 || lastResult.skipped.length > 0 || lastResult.reassigned.length > 0 || (lastResult.outsideState?.length || 0) > 0) && (
-        <div className="px-4 py-2 bg-red-50 border-b border-[#EE0B4F]/30 flex-shrink-0">
-          <p className="text-sm text-[#EE0B4F]">
-            {lastResult.assigned.length > 0 && (
-              <span className="font-semibold">
-                Assigned {lastResult.assigned.length} postcode
-                {lastResult.assigned.length !== 1 ? 's' : ''}
-              </span>
-            )}
-            {lastResult.reassigned.length > 0 && (
-              <span className="text-purple-700">
-                {lastResult.assigned.length > 0 ? ' | ' : ''}
-                Reassigned {lastResult.reassigned.length} postcode
-                {lastResult.reassigned.length !== 1 ? 's' : ''}
-              </span>
-            )}
-            {lastResult.skipped.length > 0 && (
-              <span className="text-amber-700">
-                {(lastResult.assigned.length > 0 || lastResult.reassigned.length > 0) ? ' | ' : ''}
-                Skipped {lastResult.skipped.length} (already assigned)
-              </span>
-            )}
-            {(lastResult.outsideState?.length || 0) > 0 && (
-              <span className="text-gray-500">
-                {(lastResult.assigned.length > 0 || lastResult.reassigned.length > 0 || lastResult.skipped.length > 0) ? ' | ' : ''}
-                Ignored {lastResult.outsideState?.length} (outside {selectedState})
-              </span>
-            )}
-          </p>
-        </div>
-      )}
-
-      <main className="flex-grow-map">
-        <div className="map-wrapper">
-        <Map
-          key={updateKey}
-          data={data}
-          territories={territories}
-          selectedTerritory={selectedTerritory}
-          selectedState={selectedState}
-          clickToAssign={clickToAssign}
-          showUnassignedOnly={showUnassignedOnly}
-          showCompanies={showCompanies}
-          companies={companyData?.companies || {}}
-          filteredCompanies={filteredCompanies}
-          mode={appMode}
-          assignmentMode={assignmentMode}
-          complianceZones={complianceZones}
-          showComplianceZones={showComplianceZones || complianceDrawEnabled}
-          complianceDrawEnabled={complianceDrawEnabled}
-          onComplianceZoneCreated={handleComplianceZoneCreated}
-          onComplianceZoneDeleted={handleComplianceZoneDeleted}
-          onAssignment={handleAssignment}
-          onClickAssign={handleClickAssign}
-          onAreaAnalysis={handleAreaAnalysis}
-        />
-        </div>
-      </main>
-
-      {/* Footer - only show in admin mode */}
-      {!isViewMode && (
-        <footer className="p-4 bg-gray-50 border-t border-gray-200 flex-shrink-0 overflow-auto max-h-[40vh]">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="space-y-3">
-              <StatsPanel
-                total={stateStats.total}
-                assigned={stateStats.assigned}
-                unassigned={stateStats.unassigned}
-                territories={territories}
-                territoryCounts={territoryCounts}
-                selectedState={selectedState}
-              />
-              {companyData && showCompanies && (
-                <CompanyStatsPanel
-                  total={companyStats.total}
-                  withCoords={companyStats.withCoords}
-                  missingCoords={companyStats.missingCoords}
-                  byLifecycle={companyStats.byLifecycle}
-                  byCoordSource={companyStats.byCoordSource}
-                  selectedState={selectedState}
-                />
-              )}
-            </div>
-            {companyData && showCompanies && (
-              <PUMStatsPanel
-                pumSummary={pumSummary}
-                territories={territories}
-                selectedState={selectedState}
-              />
-            )}
+      <section className="relative flex-1 bg-gray-50 py-16 lg:py-20">
+        <div className="mx-auto max-w-7xl px-6 lg:px-8">
+          <div className="mb-10 flex items-center gap-4">
+            <h2 className="text-sm font-semibold uppercase tracking-widest text-gray-500">Your Tools</h2>
+            <div className="h-px flex-1 bg-gray-200" />
           </div>
-        </footer>
-      )}
 
-      {/* Compliance Stats Bar - View Mode only */}
-      <ComplianceStatsBar
-        companies={filteredCompanies}
-        zones={complianceZones}
-        visible={isViewMode && showComplianceZones}
-      />
-      </div>
-    </>
+          <div className="grid gap-12 md:grid-cols-2 lg:grid-cols-3 items-stretch">
+            {tools.map((tool) => (
+              <ToolCard
+                key={tool.title}
+                title={tool.title}
+                description={tool.description}
+                icon={tool.icon}
+                href={tool.href}
+                internal={tool.internal}
+                comingSoon={tool.comingSoon}
+                onCaseStudyClick={tool.title === 'Case Study Database' ? handleCaseStudyClick : undefined}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <footer className="bg-[#1A1A2E] py-8">
+        <div className="mx-auto max-w-7xl px-6 lg:px-8">
+          <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/ASET-White.png" alt="ASET" className="h-6 w-auto opacity-70" />
+            <p className="text-sm text-white/50">© 2025 ASET. Built for the Ailo sales team.</p>
+          </div>
+        </div>
+      </footer>
+    </div>
   );
 }

@@ -20,6 +20,59 @@ interface CompanyLayerProps {
   isViewMode?: boolean;
 }
 
+// Get owner initials for fallback avatar
+function getOwnerInitials(ownerName: string): string {
+  if (!ownerName) return '?';
+  return ownerName
+    .split(' ')
+    .map((word) => word[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+}
+
+// Generate owner avatar HTML with image fallback to initials
+function generateOwnerAvatarHtml(ownerName: string | null | undefined): string {
+  if (!ownerName) return '';
+
+  const initials = getOwnerInitials(ownerName);
+  const size = 32;
+
+  // Generate unique ID for this avatar instance
+  const avatarId = `avatar-${ownerName.replace(/[^a-zA-Z0-9]/g, '-')}-${Date.now()}`;
+
+  return `
+    <div class="flex items-center gap-2 mt-1 mb-2">
+      <div id="${avatarId}" style="width: ${size}px; height: ${size}px; min-width: ${size}px;">
+        <img
+          src="/team-images/${ownerName}.jpeg"
+          alt="${ownerName}"
+          style="width: ${size}px; height: ${size}px; border-radius: 50%; object-fit: cover; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.2);"
+          onerror="this.onerror=null; this.src='/team-images/${ownerName}.jpg'; this.dataset.tried='jpg';"
+          onload="if(this.dataset.tried==='jpg' && this.naturalWidth===0) { this.onerror(); }"
+        />
+      </div>
+      <span class="font-semibold text-gray-800">${ownerName}</span>
+    </div>
+    <script>
+      (function() {
+        var container = document.getElementById('${avatarId}');
+        var img = container.querySelector('img');
+        var extensions = ['jpeg', 'jpg', 'png'];
+        var currentIdx = 0;
+        img.onerror = function() {
+          currentIdx++;
+          if (currentIdx < extensions.length) {
+            this.src = '/team-images/${ownerName}.' + extensions[currentIdx];
+          } else {
+            container.innerHTML = '<div style="width: ${size}px; height: ${size}px; border-radius: 50%; background-color: #EE0B4F; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 12px; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.2);">${initials}</div>';
+          }
+        };
+      })();
+    </script>
+  `;
+}
+
 // Generate popup HTML for a company
 function generatePopupContent(company: CompanyData): string {
   const color = getLifecycleColor(company.lifecycleStage);
@@ -29,14 +82,13 @@ function generatePopupContent(company: CompanyData): string {
   return `
     <div class="text-sm min-w-[240px]">
       <p class="font-bold text-base mb-1">${company.name}</p>
+      ${company.owner ? generateOwnerAvatarHtml(company.owner) : ''}
       <div class="space-y-1 text-gray-700">
         ${company.address ? `<p><span class="font-semibold">Address:</span> ${company.address}</p>` : ''}
         <p><span class="font-semibold">Location:</span> ${company.city || ''}, ${company.state || ''} ${company.postcode || ''}</p>
-        ${company.owner ? `<p><span class="font-semibold">Owner:</span> ${company.owner}</p>` : ''}
         <p><span class="font-semibold">Lifecycle:</span> <span style="color: ${color}">${company.lifecycleStage}</span></p>
         ${company.phase ? `<p><span class="font-semibold">Phase:</span> ${company.phase}${ailoCustomer ? '<span class="ml-1 text-green-600 text-xs">(Ailo Customer)</span>' : ''}</p>` : ''}
         ${company.pum > 0 ? `<p><span class="font-semibold">PUM:</span> ${company.pum.toLocaleString()}</p>` : ''}
-        ${company.territory ? `<p><span class="font-semibold">Territory:</span> ${company.territory}</p>` : ''}
         ${company.domain ? `<p><span class="font-semibold">Domain:</span> <a href="https://${company.domain}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">${company.domain}</a></p>` : ''}
         ${isPostcodeFallback ? '<p class="text-amber-600 text-xs mt-1">* Location approximate (postcode centroid)</p>' : ''}
       </div>
@@ -110,15 +162,12 @@ export default function CompanyLayer({
         disableClusteringAtZoom: 15,
         iconCreateFunction: (cluster) => {
           const count = cluster.getChildCount();
-          let size = 'small';
-          let className = 'marker-cluster-small';
+          let className = 'marker-cluster-small'; // 1-50: Ailo blue
 
-          if (count >= 100) {
-            size = 'large';
-            className = 'marker-cluster-large';
-          } else if (count >= 10) {
-            size = 'medium';
-            className = 'marker-cluster-medium';
+          if (count > 200) {
+            className = 'marker-cluster-large'; // 200+: Ailo dark navy
+          } else if (count > 50) {
+            className = 'marker-cluster-medium'; // 51-200: Ailo pink
           }
 
           return L.divIcon({

@@ -1,4 +1,4 @@
-import { PostcodeStore, PostcodeData, Territory, AustralianState } from '../types';
+import { PostcodeData, Territory, AustralianState } from '../types';
 
 function downloadFile(content: string, filename: string, mimeType: string) {
   const blob = new Blob([content], { type: mimeType });

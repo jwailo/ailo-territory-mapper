@@ -13,12 +13,14 @@ interface StatsPanelProps {
 
 export default function StatsPanel({
   total,
-  assigned,
+  assigned: _assigned,
   unassigned,
   territories,
   territoryCounts,
   selectedState,
 }: StatsPanelProps) {
+  // Note: assigned is part of the interface but we display unassigned instead
+  void _assigned;
   const territoryList = Object.values(territories).sort((a, b) =>
     a.name.localeCompare(b.name)
   );

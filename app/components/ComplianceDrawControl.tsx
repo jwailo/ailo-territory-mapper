@@ -59,9 +59,10 @@ export default function ComplianceDrawControl({
           polygon: {
             allowIntersection: false,
             shapeOptions: {
-              color: '#3B82F6',
-              fillColor: '#3B82F6',
+              color: '#EE0B4F',       // Ailo pink border at 60% opacity
+              fillColor: '#EE0B4F',   // Ailo pink fill at 20% opacity
               fillOpacity: 0.2,
+              opacity: 0.6,
             },
           },
         }}

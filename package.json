@@ -15,17 +15,20 @@
     "@turf/turf": "^7.3.1",
     "@types/leaflet-draw": "^1.0.13",
     "@types/leaflet.markercluster": "^1.5.6",
+    "clsx": "^2.1.1",
     "csv-parse": "^6.1.0",
     "dotenv": "^17.2.3",
     "leaflet": "^1.9.4",
     "leaflet-draw": "^1.0.4",
     "leaflet.markercluster": "^1.5.3",
-    "next": "16.0.5",
+    "lucide-react": "^0.556.0",
+    "next": "^16.0.7",
     "papaparse": "^5.5.3",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-leaflet": "^5.0.0",
-    "react-leaflet-draw": "^0.21.0"
+    "react-leaflet-draw": "^0.21.0",
+    "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

@@ -65,3 +65,35 @@ export function getCaseStudyUrl(): string {
   const token = getAuthToken();
   return `https://case-study-database-ailo.vercel.app/login?auth=${token}`;
 }
+
+// Validate an auth token from URL parameter
+export function validateAuthToken(token: string | null): boolean {
+  if (!token) return false;
+
+  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+  const expectedToken = btoa(`${AUTH_SECRET}-${today}`);
+  return token === expectedToken;
+}
+
+// Check URL for auth token and authenticate if valid
+export function checkUrlAuthToken(): boolean {
+  if (typeof window === 'undefined') return false;
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const authToken = urlParams.get('auth');
+
+  if (validateAuthToken(authToken)) {
+    // Valid token - set session as authenticated and generate token
+    setSiteAuthenticated();
+    generateAuthToken();
+
+    // Clean the URL by removing the auth parameter
+    const url = new URL(window.location.href);
+    url.searchParams.delete('auth');
+    window.history.replaceState({}, '', url.toString());
+
+    return true;
+  }
+
+  return false;
+}

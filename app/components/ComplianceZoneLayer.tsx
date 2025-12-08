@@ -12,7 +12,7 @@ interface ComplianceZoneLayerProps {
   onDeleteZone?: (zoneId: string) => void;
 }
 
-const COMPLIANCE_COLOR = '#3B82F6';
+const COMPLIANCE_COLOR = '#EE0B4F'; // Ailo pink
 
 export default function ComplianceZoneLayer({
   zones,
@@ -28,8 +28,8 @@ export default function ComplianceZoneLayer({
     if (layerGroupRef.current) {
       try {
         map.removeLayer(layerGroupRef.current);
-      } catch (e) {
-        console.warn('Error removing compliance zone layer:', e);
+      } catch {
+        // Ignore cleanup errors
       }
       layerGroupRef.current = null;
     }
@@ -95,7 +95,7 @@ export default function ComplianceZoneLayer({
       if (layerGroupRef.current) {
         try {
           map.removeLayer(layerGroupRef.current);
-        } catch (e) {
+        } catch {
           // Ignore cleanup errors
         }
         layerGroupRef.current = null;

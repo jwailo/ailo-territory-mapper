@@ -245,9 +245,10 @@ function AnalysisDrawControl({
           polygon: {
             allowIntersection: false,
             shapeOptions: {
-              color: '#0ea5e9',
-              fillColor: '#0ea5e9',
-              fillOpacity: 0.1,
+              color: '#EE0B4F',       // Ailo pink border at 60% opacity
+              fillColor: '#EE0B4F',   // Ailo pink fill at 20% opacity
+              fillOpacity: 0.2,
+              opacity: 0.6,
               dashArray: '5, 5',
             },
           },

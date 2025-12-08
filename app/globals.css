@@ -59,11 +59,10 @@ body {
   flex-shrink: 0;
 }
 
-/* Marker cluster styles */
+/* Marker cluster styles - Ailo Brand Colors (override leaflet.markercluster defaults) */
 .marker-cluster {
   background-clip: padding-box;
   border-radius: 20px;
-  background-color: rgba(110, 204, 57, 0.6);
 }
 
 .marker-cluster div {
@@ -74,36 +73,42 @@ body {
   text-align: center;
   border-radius: 15px;
   font: 12px "Helvetica Neue", Arial, Helvetica, sans-serif;
-  background-color: rgba(110, 204, 57, 0.8);
   display: flex;
   align-items: center;
   justify-content: center;
+  color: white !important;
 }
 
 .marker-cluster span {
-  color: #fff;
+  color: #fff !important;
   font-weight: bold;
 }
 
+/* Small clusters (1-50) - Ailo blue #6e8fcb */
 .marker-cluster-small {
-  background-color: rgba(181, 226, 140, 0.6);
+  background-color: rgba(110, 143, 203, 0.6) !important;
+  border: 2px solid #6e8fcb !important;
 }
 .marker-cluster-small div {
-  background-color: rgba(110, 204, 57, 0.8);
+  background-color: #6e8fcb !important;
 }
 
+/* Medium clusters (51-200) - Ailo pink #EE0B4F */
 .marker-cluster-medium {
-  background-color: rgba(241, 211, 87, 0.6);
+  background-color: rgba(238, 11, 79, 0.6) !important;
+  border: 2px solid #EE0B4F !important;
 }
 .marker-cluster-medium div {
-  background-color: rgba(240, 194, 12, 0.8);
+  background-color: #EE0B4F !important;
 }
 
+/* Large clusters (200+) - Ailo dark navy #1A1A2E */
 .marker-cluster-large {
-  background-color: rgba(253, 156, 115, 0.6);
+  background-color: rgba(26, 26, 46, 0.6) !important;
+  border: 2px solid #1A1A2E !important;
 }
 .marker-cluster-large div {
-  background-color: rgba(241, 128, 23, 0.8);
+  background-color: #1A1A2E !important;
 }
 
 /* Company popup styles */

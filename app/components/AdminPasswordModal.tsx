@@ -18,16 +18,24 @@ export default function AdminPasswordModal({
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const wasOpenRef = useRef(isOpen);
 
+  // Focus input when modal opens (using ref to detect transition)
   useEffect(() => {
-    if (isOpen) {
-      setPassword('');
-      setError('');
-      setIsSubmitting(false);
-      // Focus input after modal opens
+    if (isOpen && !wasOpenRef.current) {
+      // Modal just opened - focus input
       setTimeout(() => inputRef.current?.focus(), 100);
     }
+    wasOpenRef.current = isOpen;
   }, [isOpen]);
+
+  // Reset form state when close is called
+  const handleClose = () => {
+    setPassword('');
+    setError('');
+    setIsSubmitting(false);
+    onClose();
+  };
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -37,7 +45,7 @@ export default function AdminPasswordModal({
     if (checkAdminPassword(password)) {
       setAdminAuthenticated();
       onAuthenticated();
-      onClose();
+      handleClose();
     } else {
       setError('Incorrect password');
       setPassword('');
@@ -53,7 +61,7 @@ export default function AdminPasswordModal({
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-gray-900">Admin Access Required</h2>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="text-gray-400 hover:text-gray-600 transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -104,7 +112,7 @@ export default function AdminPasswordModal({
           <div className="flex gap-3">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2.5 px-4 rounded-lg transition-colors text-sm"
             >
               Cancel
