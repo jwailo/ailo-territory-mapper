@@ -1,28 +1,29 @@
 'use client';
 
 import { useState, FormEvent } from 'react';
-import { checkSitePassword, setSiteAuthenticated, generateAuthToken } from '../utils/auth';
+import { loginUser, User } from '../utils/auth';
 
 interface SiteLoginScreenProps {
-  onAuthenticated: () => void;
+  onAuthenticated: (user: User) => void;
 }
 
 export default function SiteLoginScreen({ onAuthenticated }: SiteLoginScreenProps) {
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setError('');
 
-    if (checkSitePassword(password)) {
-      setSiteAuthenticated();
-      generateAuthToken(); // Generate token for cross-app authentication
-      onAuthenticated();
+    const result = await loginUser(email, password);
+
+    if (result.success && result.user) {
+      onAuthenticated(result.user);
     } else {
-      setError('Incorrect password');
+      setError(result.error || 'Login failed');
       setPassword('');
       setIsSubmitting(false);
     }
@@ -44,6 +45,23 @@ export default function SiteLoginScreen({ onAuthenticated }: SiteLoginScreenProp
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
+            <label htmlFor="email" className="sr-only">
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Email address"
+              className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg focus:ring-2 focus:ring-[#EE0B4F] focus:border-[#EE0B4F] text-white placeholder-gray-400"
+              autoFocus
+              autoComplete="email"
+              disabled={isSubmitting}
+            />
+          </div>
+
+          <div>
             <label htmlFor="password" className="sr-only">
               Password
             </label>
@@ -52,9 +70,9 @@ export default function SiteLoginScreen({ onAuthenticated }: SiteLoginScreenProp
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter password"
+              placeholder="Password"
               className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg focus:ring-2 focus:ring-[#EE0B4F] focus:border-[#EE0B4F] text-white placeholder-gray-400"
-              autoFocus
+              autoComplete="current-password"
               disabled={isSubmitting}
             />
           </div>
@@ -74,10 +92,10 @@ export default function SiteLoginScreen({ onAuthenticated }: SiteLoginScreenProp
 
           <button
             type="submit"
-            disabled={!password || isSubmitting}
+            disabled={!email || !password || isSubmitting}
             className="w-full bg-[#EE0B4F] hover:bg-[#c4093f] disabled:bg-[#f5839f] disabled:cursor-not-allowed text-white font-semibold py-3 px-4 rounded-lg transition-colors"
           >
-            {isSubmitting ? 'Authenticating...' : 'Enter'}
+            {isSubmitting ? 'Signing in...' : 'Sign in'}
           </button>
         </form>
       </div>

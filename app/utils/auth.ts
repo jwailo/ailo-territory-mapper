@@ -1,18 +1,99 @@
-// Password constants
-const SITE_PASSWORD = 'bDL-YPzMM7wRPTC9d3mm';
-const ADMIN_PASSWORD = 'Victory!';
+import bcrypt from 'bcryptjs';
+import { supabase } from './supabase';
 
-// Site authentication
-export function checkSitePassword(entered: string): boolean {
-  return entered === SITE_PASSWORD;
+// User type
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: 'ae' | 'admin';
+  photo_url: string | null;
 }
 
-export function setSiteAuthenticated(): void {
+// Admin mode password (separate from user login)
+const ADMIN_PASSWORD = 'Victory!';
+
+// User authentication - login with email and password
+export async function loginUser(
+  email: string,
+  password: string
+): Promise<{ success: boolean; user?: User; error?: string }> {
+  try {
+    // Query user by email
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('id, email, name, role, photo_url, password_hash')
+      .eq('email', email.toLowerCase().trim())
+      .single();
+
+    if (error || !user) {
+      return { success: false, error: 'Invalid email or password' };
+    }
+
+    // Verify password
+    const isValidPassword = await bcrypt.compare(password, user.password_hash);
+    if (!isValidPassword) {
+      return { success: false, error: 'Invalid email or password' };
+    }
+
+    // Update last_login timestamp
+    await supabase
+      .from('users')
+      .update({ last_login: new Date().toISOString() })
+      .eq('id', user.id);
+
+    // Store user in session
+    const userData: User = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      photo_url: user.photo_url,
+    };
+
+    setCurrentUser(userData);
+    generateAuthToken(user.id);
+
+    return { success: true, user: userData };
+  } catch (err) {
+    console.error('Login error:', err);
+    return { success: false, error: 'An error occurred during login' };
+  }
+}
+
+// Store current user in session
+export function setCurrentUser(user: User): void {
   if (typeof window !== 'undefined') {
+    sessionStorage.setItem('currentUser', JSON.stringify(user));
     sessionStorage.setItem('siteAuthenticated', 'true');
   }
 }
 
+// Get current user from session
+export function getCurrentUser(): User | null {
+  if (typeof window !== 'undefined') {
+    const userJson = sessionStorage.getItem('currentUser');
+    if (userJson) {
+      try {
+        return JSON.parse(userJson) as User;
+      } catch {
+        return null;
+      }
+    }
+  }
+  return null;
+}
+
+// Clear current user (logout)
+export function clearCurrentUser(): void {
+  if (typeof window !== 'undefined') {
+    sessionStorage.removeItem('currentUser');
+    sessionStorage.removeItem('siteAuthenticated');
+    sessionStorage.removeItem('aset-auth-token');
+  }
+}
+
+// Site authentication (check if user is logged in)
 export function isSiteAuthenticated(): boolean {
   if (typeof window !== 'undefined') {
     return sessionStorage.getItem('siteAuthenticated') === 'true';
@@ -20,7 +101,14 @@ export function isSiteAuthenticated(): boolean {
   return false;
 }
 
-// Admin authentication
+// Legacy function for backwards compatibility
+export function setSiteAuthenticated(): void {
+  if (typeof window !== 'undefined') {
+    sessionStorage.setItem('siteAuthenticated', 'true');
+  }
+}
+
+// Admin mode authentication (separate from user login)
 export function checkAdminPassword(entered: string): boolean {
   return entered === ADMIN_PASSWORD;
 }
@@ -47,11 +135,14 @@ export function clearAdminAuthenticated(): void {
 // Cross-app authentication token
 const AUTH_SECRET = 'ailo-sales-2024';
 
-export function generateAuthToken(): string {
+export function generateAuthToken(userId?: string): string {
   if (typeof window === 'undefined') return '';
 
   const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-  const token = btoa(`${AUTH_SECRET}-${today}`); // base64 encode
+  const payload = userId
+    ? JSON.stringify({ secret: AUTH_SECRET, date: today, userId })
+    : `${AUTH_SECRET}-${today}`;
+  const token = btoa(payload);
   sessionStorage.setItem('aset-auth-token', token);
   return token;
 }
@@ -70,9 +161,23 @@ export function getCaseStudyUrl(): string {
 export function validateAuthToken(token: string | null): boolean {
   if (!token) return false;
 
-  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-  const expectedToken = btoa(`${AUTH_SECRET}-${today}`);
-  return token === expectedToken;
+  try {
+    const decoded = atob(token);
+
+    // Check if it's the new JSON format with userId
+    try {
+      const parsed = JSON.parse(decoded);
+      const today = new Date().toISOString().split('T')[0];
+      return parsed.secret === AUTH_SECRET && parsed.date === today;
+    } catch {
+      // Fall back to legacy format
+      const today = new Date().toISOString().split('T')[0];
+      const expectedToken = btoa(`${AUTH_SECRET}-${today}`);
+      return token === expectedToken;
+    }
+  } catch {
+    return false;
+  }
 }
 
 // Check URL for auth token and authenticate if valid
@@ -83,9 +188,21 @@ export function checkUrlAuthToken(): boolean {
   const authToken = urlParams.get('auth');
 
   if (validateAuthToken(authToken)) {
-    // Valid token - set session as authenticated and generate token
+    // Valid token - set session as authenticated
     setSiteAuthenticated();
-    generateAuthToken();
+
+    // Try to extract userId from token and restore user session
+    try {
+      const decoded = atob(authToken!);
+      const parsed = JSON.parse(decoded);
+      if (parsed.userId) {
+        // Regenerate the token to maintain session
+        generateAuthToken(parsed.userId);
+      }
+    } catch {
+      // Legacy token format, just generate a new one
+      generateAuthToken();
+    }
 
     // Clean the URL by removing the auth parameter
     const url = new URL(window.location.href);
@@ -96,4 +213,9 @@ export function checkUrlAuthToken(): boolean {
   }
 
   return false;
+}
+
+// Hash a password (for creating users)
+export async function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, 10);
 }

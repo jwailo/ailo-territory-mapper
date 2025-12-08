@@ -9,6 +9,8 @@ import {
   getCaseStudyUrl,
   checkUrlAuthToken,
   generateAuthToken,
+  getCurrentUser,
+  User,
 } from './utils/auth';
 import SiteLoginScreen from './components/SiteLoginScreen';
 
@@ -169,21 +171,23 @@ function ToolCard({
 
 export default function Home() {
   // Use lazy initialization to check auth status synchronously on first render
-  const [authState, setAuthState] = useState<{ authenticated: boolean; checked: boolean }>(() => {
+  const [authState, setAuthState] = useState<{ authenticated: boolean; checked: boolean; user: User | null }>(() => {
     if (typeof window === 'undefined') {
-      return { authenticated: false, checked: false };
+      return { authenticated: false, checked: false, user: null };
     }
     // First check for auth token in URL (cross-app authentication)
     if (checkUrlAuthToken()) {
-      return { authenticated: true, checked: true };
+      return { authenticated: true, checked: true, user: getCurrentUser() };
     }
     // Fall back to session storage check
-    return { authenticated: isSiteAuthenticated(), checked: true };
+    const isAuth = isSiteAuthenticated();
+    return { authenticated: isAuth, checked: true, user: isAuth ? getCurrentUser() : null };
   });
 
   const siteAuthenticated = authState.authenticated;
   const authChecked = authState.checked;
-  const setSiteAuthenticated = (val: boolean) => setAuthState((prev) => ({ ...prev, authenticated: val }));
+  const currentUser = authState.user;
+  const handleAuthenticated = (user: User) => setAuthState({ authenticated: true, checked: true, user });
 
   // On client side, ensure auth is checked if SSR returned unchecked
   useEffect(() => {
@@ -191,9 +195,10 @@ export default function Home() {
       // Use queueMicrotask to defer state update and satisfy lint rules
       queueMicrotask(() => {
         if (checkUrlAuthToken()) {
-          setAuthState({ authenticated: true, checked: true });
+          setAuthState({ authenticated: true, checked: true, user: getCurrentUser() });
         } else {
-          setAuthState({ authenticated: isSiteAuthenticated(), checked: true });
+          const isAuth = isSiteAuthenticated();
+          setAuthState({ authenticated: isAuth, checked: true, user: isAuth ? getCurrentUser() : null });
         }
       });
     }
@@ -223,8 +228,18 @@ export default function Home() {
 
   // Show login screen if not authenticated
   if (!siteAuthenticated) {
-    return <SiteLoginScreen onAuthenticated={() => setSiteAuthenticated(true)} />;
+    return <SiteLoginScreen onAuthenticated={handleAuthenticated} />;
   }
+
+  // Get user initials for avatar fallback
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -234,8 +249,31 @@ export default function Home() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/ASET-White.png" alt="ASET" className="h-12 w-auto lg:h-14" />
           </div>
-          <div className="flex items-center gap-6">
-            <span className="hidden text-sm text-white/70 sm:block">Ailo Sales Team</span>
+          <div className="flex items-center gap-4">
+            {currentUser && (
+              <>
+                <span className="hidden text-sm text-white/70 sm:block">
+                  Welcome back, <span className="text-white font-medium">{currentUser.name.split(' ')[0]}</span>
+                </span>
+                {currentUser.photo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={currentUser.photo_url}
+                    alt={currentUser.name}
+                    className="h-10 w-10 rounded-full border-2 border-white/20 object-cover"
+                  />
+                ) : (
+                  <div className="h-10 w-10 rounded-full border-2 border-white/20 bg-[#EE0B4F] flex items-center justify-center">
+                    <span className="text-sm font-semibold text-white">
+                      {getInitials(currentUser.name)}
+                    </span>
+                  </div>
+                )}
+              </>
+            )}
+            {!currentUser && (
+              <span className="hidden text-sm text-white/70 sm:block">Ailo Sales Team</span>
+            )}
           </div>
         </div>
       </header>
