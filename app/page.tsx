@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { MapPin, FolderOpen, Calculator, ArrowRight, Sparkles } from 'lucide-react';
+import { MapPin, FolderOpen, Calculator, ArrowRight, Sparkles, Settings, Music } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import {
   isSiteAuthenticated,
@@ -12,7 +12,31 @@ import {
   getCurrentUser,
   User,
 } from './utils/auth';
+import { supabase } from './utils/supabase';
 import SiteLoginScreen from './components/SiteLoginScreen';
+
+// Time-based greeting helper
+function getTimeBasedGreeting(firstName: string): string {
+  const now = new Date();
+  const hour = now.getHours();
+  const dayOfWeek = now.getDay();
+  const isFriday = dayOfWeek === 5;
+
+  let greeting: string;
+  if (hour < 12) {
+    greeting = `Morning ${firstName} - let's get after it`;
+  } else if (hour < 17) {
+    greeting = `Afternoon ${firstName} - keep pushing`;
+  } else {
+    greeting = `Evening ${firstName} - finish strong`;
+  }
+
+  if (isFriday) {
+    greeting += ' - Happy Friday!';
+  }
+
+  return greeting;
+}
 
 const tools = [
   {
@@ -189,6 +213,10 @@ export default function Home() {
   const currentUser = authState.user;
   const handleAuthenticated = (user: User) => setAuthState({ authenticated: true, checked: true, user });
 
+  // Personalisation state
+  const [walkonSong, setWalkonSong] = useState<string | null>(null);
+  const [heroImage, setHeroImage] = useState<string | null>(null);
+
   // On client side, ensure auth is checked if SSR returned unchecked
   useEffect(() => {
     if (!authState.checked) {
@@ -210,6 +238,49 @@ export default function Home() {
       generateAuthToken();
     }
   }, [siteAuthenticated]);
+
+  // Fetch user preferences and content for personalisation
+  useEffect(() => {
+    async function fetchPersonalisation() {
+      if (!currentUser) return;
+
+      // Fetch walk-on song from user_preferences
+      const { data: prefs } = await supabase
+        .from('user_preferences')
+        .select('walkon_song')
+        .eq('user_id', currentUser.id)
+        .single();
+
+      if (prefs?.walkon_song) {
+        setWalkonSong(prefs.walkon_song);
+      }
+
+      // Fetch hero images from user_content
+      const { data: images } = await supabase
+        .from('user_content')
+        .select('content')
+        .eq('user_id', currentUser.id)
+        .eq('content_type', 'header_image');
+
+      if (images && images.length > 0) {
+        // Rotate weekly based on week number
+        const weekNumber = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
+        const imageIndex = weekNumber % images.length;
+        setHeroImage(images[imageIndex].content);
+      }
+    }
+
+    fetchPersonalisation();
+  }, [currentUser]);
+
+  // Handle walk-on song click
+  const handleWalkonSongClick = () => {
+    if (walkonSong) {
+      // Try to open Spotify search first, fallback to YouTube
+      const searchQuery = encodeURIComponent(walkonSong);
+      window.open(`https://open.spotify.com/search/${searchQuery}`, '_blank');
+    }
+  };
 
   // Case Study Database handler
   const handleCaseStudyClick = () => {
@@ -252,9 +323,29 @@ export default function Home() {
           <div className="flex items-center gap-4">
             {currentUser && (
               <>
-                <span className="hidden text-sm text-white/70 sm:block">
-                  Welcome back, <span className="text-white font-medium">{currentUser.name.split(' ')[0]}</span>
-                </span>
+                <div className="hidden sm:flex items-center gap-2">
+                  <span className="text-sm text-white/70">
+                    {getTimeBasedGreeting(currentUser.name.split(' ')[0])}
+                  </span>
+                  {walkonSong && (
+                    <button
+                      onClick={handleWalkonSongClick}
+                      className="p-1.5 rounded-full hover:bg-white/10 transition-colors group"
+                      title="Get fired up"
+                    >
+                      <Music className="h-4 w-4 text-[#EE0B4F] group-hover:scale-110 transition-transform" />
+                    </button>
+                  )}
+                </div>
+                {currentUser.role === 'admin' && (
+                  <Link
+                    href="/admin/users"
+                    className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+                    title="User Management"
+                  >
+                    <Settings className="h-5 w-5 text-white/70 hover:text-white" />
+                  </Link>
+                )}
                 {currentUser.photo_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -289,24 +380,39 @@ export default function Home() {
         </div>
 
         <div className="relative mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="py-16 lg:py-24">
-            <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-[#EE0B4F]/20 bg-white/80 backdrop-blur-sm px-4 py-2">
-              <Sparkles className="h-4 w-4 text-[#EE0B4F]" />
-              <span className="text-sm font-medium text-gray-600">Your sales toolkit</span>
+          <div className="py-16 lg:py-24 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-12">
+            {/* Left side - Text content */}
+            <div className="flex-1">
+              <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-[#EE0B4F]/20 bg-white/80 backdrop-blur-sm px-4 py-2">
+                <Sparkles className="h-4 w-4 text-[#EE0B4F]" />
+                <span className="text-sm font-medium text-gray-600">Your sales toolkit</span>
+              </div>
+
+              <h1 className="max-w-4xl text-balance">
+                <span className="block text-5xl font-black tracking-tight text-[#1A1A2E] sm:text-6xl lg:text-7xl xl:text-8xl">
+                  Close deals
+                </span>
+                <span className="block text-5xl font-black tracking-tight text-[#EE0B4F] sm:text-6xl lg:text-7xl xl:text-8xl">
+                  faster.
+                </span>
+              </h1>
+
+              <p className="mt-8 max-w-xl text-lg text-gray-600 leading-relaxed lg:text-xl">
+                Everything you need to prospect, pitch, and win. Built for the Ailo sales team.
+              </p>
             </div>
 
-            <h1 className="max-w-4xl text-balance">
-              <span className="block text-5xl font-black tracking-tight text-[#1A1A2E] sm:text-6xl lg:text-7xl xl:text-8xl">
-                Close deals
-              </span>
-              <span className="block text-5xl font-black tracking-tight text-[#EE0B4F] sm:text-6xl lg:text-7xl xl:text-8xl">
-                faster.
-              </span>
-            </h1>
-
-            <p className="mt-8 max-w-xl text-lg text-gray-600 leading-relaxed lg:text-xl">
-              Everything you need to prospect, pitch, and win. Built for the Ailo sales team.
-            </p>
+            {/* Right side - Hero image (if available) */}
+            {heroImage && (
+              <div className="hidden lg:block flex-shrink-0 w-96 h-80">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={heroImage}
+                  alt="Hero"
+                  className="w-full h-full object-cover rounded-2xl shadow-2xl"
+                />
+              </div>
+            )}
           </div>
         </div>
       </section>
