@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ArrowLeft, Plus, Key, Trash2, X } from 'lucide-react';
 import { getCurrentUser, hashPassword } from '../../utils/auth';
 import { supabase } from '../../utils/supabase';
+import { getRandomQuote, Quote } from '../../data/loadingQuotes';
 
 interface UserRecord {
   id: string;
@@ -32,6 +33,7 @@ export default function AdminUsersPage() {
   const [resetPassword, setResetPassword] = useState('');
   const [formError, setFormError] = useState('');
   const [formLoading, setFormLoading] = useState(false);
+  const [loadingQuote] = useState<Quote>(() => getRandomQuote());
 
   // Check admin access and load users
   useEffect(() => {
@@ -166,8 +168,37 @@ export default function AdminUsersPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-600">Loading...</p>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-[#1A1A2E] to-[#2D2D3A]">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/ASET-White.png"
+          alt="ASET"
+          style={{ height: '60px', width: 'auto', marginBottom: '24px' }}
+        />
+        <div className="mb-8">
+          <div className="relative">
+            {/* Outer ring */}
+            <div className="h-12 w-12 rounded-full border-4 border-white/20" />
+            {/* Spinning arc */}
+            <div className="absolute inset-0 h-12 w-12 animate-spin rounded-full border-4 border-transparent border-t-[#EE0B4F]" />
+          </div>
+        </div>
+        <p className="text-white/60 text-xs mb-6">Loading users...</p>
+        {/* Quote */}
+        <div className="max-w-lg px-6 text-center">
+          <p className="text-lg italic text-white/80 leading-relaxed">
+            {loadingQuote.attribution ? (
+              <>
+                &ldquo;{loadingQuote.content}&rdquo;
+                <span className="mt-3 block text-sm text-white/60 not-italic">
+                  — {loadingQuote.attribution}
+                </span>
+              </>
+            ) : (
+              <>&ldquo;{loadingQuote.content}&rdquo;</>
+            )}
+          </p>
+        </div>
       </div>
     );
   }

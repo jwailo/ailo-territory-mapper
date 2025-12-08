@@ -60,6 +60,8 @@ import StateSelector from '../components/StateSelector';
 import ModeToggle from '../components/ModeToggle';
 import SiteLoginScreen from '../components/SiteLoginScreen';
 import AdminPasswordModal from '../components/AdminPasswordModal';
+import LoadingOverlay from '../components/LoadingOverlay';
+import { getRandomQuote, Quote } from '../data/loadingQuotes';
 
 // Dynamic imports for components not needed on initial render (code splitting)
 const StatsPanel = dynamic(() => import('../components/StatsPanel'), { ssr: false });
@@ -130,6 +132,9 @@ export default function MapPage() {
 
   // Collapsible panel state
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
+
+  // Loading quote state
+  const [loadingQuote] = useState<Quote>(() => getRandomQuote());
 
   // Check authentication on mount
   useEffect(() => {
@@ -646,8 +651,30 @@ export default function MapPage() {
           alt="ASET"
           style={{ height: '60px', width: 'auto', marginBottom: '24px' }}
         />
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#EE0B4F] mb-4"></div>
-        <p className="text-white/80 text-sm">{loadingStatus}</p>
+        <div className="mb-8">
+          <div className="relative">
+            {/* Outer ring */}
+            <div className="h-12 w-12 rounded-full border-4 border-white/20" />
+            {/* Spinning arc */}
+            <div className="absolute inset-0 h-12 w-12 animate-spin rounded-full border-4 border-transparent border-t-[#EE0B4F]" />
+          </div>
+        </div>
+        <p className="text-white/60 text-xs mb-6">{loadingStatus}</p>
+        {/* Quote */}
+        <div className="max-w-lg px-6 text-center">
+          <p className="text-lg italic text-white/80 leading-relaxed">
+            {loadingQuote.attribution ? (
+              <>
+                &ldquo;{loadingQuote.content}&rdquo;
+                <span className="mt-3 block text-sm text-white/60 not-italic">
+                  — {loadingQuote.attribution}
+                </span>
+              </>
+            ) : (
+              <>&ldquo;{loadingQuote.content}&rdquo;</>
+            )}
+          </p>
+        </div>
       </div>
     );
   }
@@ -785,11 +812,8 @@ export default function MapPage() {
 
               {/* View Mode: Show filters panel and analysis panel */}
               {isViewMode && (companiesLoading ? (
-                <div className="lg:col-span-3 flex items-center justify-center p-8 bg-white border border-gray-200 rounded-lg">
-                  <div className="text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#EE0B4F] mx-auto mb-3"></div>
-                    <p className="text-gray-500 text-sm">Loading company data...</p>
-                  </div>
+                <div className="lg:col-span-3 relative min-h-[150px] bg-white border border-gray-200 rounded-lg overflow-hidden">
+                  <LoadingOverlay isLoading={true} delay={0} />
                 </div>
               ) : companyData && (
                 <>

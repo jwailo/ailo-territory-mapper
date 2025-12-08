@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { MapPin, FolderOpen, Calculator, ArrowRight, Sparkles, Settings, Music } from 'lucide-react';
+import { MapPin, FolderOpen, Calculator, ArrowRight, Sparkles, Settings } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import {
   isSiteAuthenticated,
@@ -12,8 +12,36 @@ import {
   getCurrentUser,
   User,
 } from './utils/auth';
-import { supabase } from './utils/supabase';
 import SiteLoginScreen from './components/SiteLoginScreen';
+
+// Bern's hero images - rotate weekly (changes every Monday)
+const bernHeroImages = [
+  '/user-images/bernadette/hero/tigers.2.png',
+  '/user-images/bernadette/hero/swans.2.png',
+  '/user-images/bernadette/hero/brady.2.png',
+  '/user-images/bernadette/hero/bolt.2.1.png',
+  '/user-images/bernadette/hero/bolt.2.3.png',
+  '/user-images/bernadette/hero/ACDC.2.png',
+  '/user-images/bernadette/hero/INXS.2.png',
+  '/user-images/bernadette/hero/suits.2.png',
+  '/user-images/bernadette/hero/Goodes.2.png',
+];
+
+// Bern's walk-on song - Tick Tick Boom by Sage the Gemini
+const WALKON_SONG_URL = 'https://www.youtube.com/watch?v=rlMq4JA-q2Q';
+
+// Bern's profile photo
+const PROFILE_PHOTO_URL = '/team-images/bernadette-coutis.png';
+
+// Weekly rotation - pick image based on week number
+function getWeeklyHeroImage(): string {
+  const now = new Date();
+  const startOfYear = new Date(now.getFullYear(), 0, 1);
+  const weekNumber = Math.ceil(
+    ((now.getTime() - startOfYear.getTime()) / 86400000 + startOfYear.getDay() + 1) / 7
+  );
+  return bernHeroImages[weekNumber % bernHeroImages.length];
+}
 
 // Time-based greeting helper
 function getTimeBasedGreeting(firstName: string): string {
@@ -213,10 +241,7 @@ export default function Home() {
   const currentUser = authState.user;
   const handleAuthenticated = (user: User) => setAuthState({ authenticated: true, checked: true, user });
 
-  // Personalisation state
-  const [walkonSong, setWalkonSong] = useState<string | null>(null);
-  const [heroImage, setHeroImage] = useState<string | null>(null);
-
+  
   // On client side, ensure auth is checked if SSR returned unchecked
   useEffect(() => {
     if (!authState.checked) {
@@ -239,47 +264,10 @@ export default function Home() {
     }
   }, [siteAuthenticated]);
 
-  // Fetch user preferences and content for personalisation
-  useEffect(() => {
-    async function fetchPersonalisation() {
-      if (!currentUser) return;
-
-      // Fetch walk-on song from user_preferences
-      const { data: prefs } = await supabase
-        .from('user_preferences')
-        .select('walkon_song')
-        .eq('user_id', currentUser.id)
-        .single();
-
-      if (prefs?.walkon_song) {
-        setWalkonSong(prefs.walkon_song);
-      }
-
-      // Fetch hero images from user_content
-      const { data: images } = await supabase
-        .from('user_content')
-        .select('content')
-        .eq('user_id', currentUser.id)
-        .eq('content_type', 'header_image');
-
-      if (images && images.length > 0) {
-        // Rotate weekly based on week number
-        const weekNumber = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
-        const imageIndex = weekNumber % images.length;
-        setHeroImage(images[imageIndex].content);
-      }
-    }
-
-    fetchPersonalisation();
-  }, [currentUser]);
-
-  // Handle walk-on song click
+  
+  // Handle walk-on song click - opens Bern's walk-on song in new tab
   const handleWalkonSongClick = () => {
-    if (walkonSong) {
-      // Try to open Spotify search first, fallback to YouTube
-      const searchQuery = encodeURIComponent(walkonSong);
-      window.open(`https://open.spotify.com/search/${searchQuery}`, '_blank');
-    }
+    window.open(WALKON_SONG_URL, '_blank');
   };
 
   // Case Study Database handler
@@ -302,15 +290,8 @@ export default function Home() {
     return <SiteLoginScreen onAuthenticated={handleAuthenticated} />;
   }
 
-  // Get user initials for avatar fallback
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  };
+  // Get weekly rotating hero image
+  const heroImageUrl = getWeeklyHeroImage();
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -323,19 +304,18 @@ export default function Home() {
           <div className="flex items-center gap-4">
             {currentUser && (
               <>
-                <div className="hidden sm:flex items-center gap-2">
+                <div className="hidden sm:flex items-center gap-3">
                   <span className="text-sm text-white/70">
                     {getTimeBasedGreeting(currentUser.name.split(' ')[0])}
                   </span>
-                  {walkonSong && (
-                    <button
-                      onClick={handleWalkonSongClick}
-                      className="p-1.5 rounded-full hover:bg-white/10 transition-colors group"
-                      title="Get fired up"
-                    >
-                      <Music className="h-4 w-4 text-[#EE0B4F] group-hover:scale-110 transition-transform" />
-                    </button>
-                  )}
+                  <button
+                    onClick={handleWalkonSongClick}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#EE0B4F]/20 hover:bg-[#EE0B4F]/30 border border-[#EE0B4F]/30 transition-all group cursor-pointer"
+                    title="Tick Tick Boom - Sage the Gemini"
+                  >
+                    <span className="text-sm font-medium text-white">Get fired up</span>
+                    <span className="text-base group-hover:animate-pulse">🔥</span>
+                  </button>
                 </div>
                 {currentUser.role === 'admin' && (
                   <Link
@@ -346,20 +326,12 @@ export default function Home() {
                     <Settings className="h-5 w-5 text-white/70 hover:text-white" />
                   </Link>
                 )}
-                {currentUser.photo_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={currentUser.photo_url}
-                    alt={currentUser.name}
-                    className="h-10 w-10 rounded-full border-2 border-white/20 object-cover"
-                  />
-                ) : (
-                  <div className="h-10 w-10 rounded-full border-2 border-white/20 bg-[#EE0B4F] flex items-center justify-center">
-                    <span className="text-sm font-semibold text-white">
-                      {getInitials(currentUser.name)}
-                    </span>
-                  </div>
-                )}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={PROFILE_PHOTO_URL}
+                  alt={currentUser.name}
+                  className="h-9 w-9 rounded-full border-2 border-white/20 object-cover"
+                />
               </>
             )}
             {!currentUser && (
@@ -369,23 +341,14 @@ export default function Home() {
         </div>
       </header>
 
-      <section className="relative bg-gradient-to-br from-[#EE0B4F]/15 via-[#EE0B4F]/8 via-50% to-[#6e8fcb]/10">
-        {/* Soft radial overlay for smoother blending */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#6e8fcb]/10 via-transparent to-transparent" />
-
-        {/* Decorative elements with feathered edges */}
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -right-1/4 top-0 h-full w-3/4 bg-gradient-to-l from-[#6e8fcb]/8 via-[#6e8fcb]/4 to-transparent skew-x-12 blur-sm" />
-          <div className="absolute -left-1/4 bottom-0 h-2/3 w-2/3 bg-gradient-to-r from-[#EE0B4F]/8 via-[#EE0B4F]/4 to-transparent -skew-x-12 blur-sm" />
-        </div>
-
-        <div className="relative mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="py-16 lg:py-24 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-12">
-            {/* Left side - Text content */}
-            <div className="flex-1">
-              <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-[#EE0B4F]/20 bg-white/80 backdrop-blur-sm px-4 py-2">
+      <section className="relative min-h-[400px] lg:min-h-[500px]">
+        <div className="flex h-full min-h-[400px] lg:min-h-[500px]">
+          {/* Left: Text area - 55% with diagonal light gradient in Ailo colours */}
+          <div className="w-full lg:w-[55%] flex items-center px-6 lg:px-12 py-16 lg:py-24 bg-gradient-to-br from-[#EE0B4F]/15 via-[#EE0B4F]/8 via-50% to-[#6e8fcb]/10">
+            <div className="max-w-2xl">
+              <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-[#1A1A2E]/20 bg-[#1A1A2E]/5 backdrop-blur-sm px-4 py-2">
                 <Sparkles className="h-4 w-4 text-[#EE0B4F]" />
-                <span className="text-sm font-medium text-gray-600">Your sales toolkit</span>
+                <span className="text-sm font-medium text-[#1A1A2E]/80">Your sales toolkit</span>
               </div>
 
               <h1 className="max-w-4xl text-balance">
@@ -397,22 +360,27 @@ export default function Home() {
                 </span>
               </h1>
 
-              <p className="mt-8 max-w-xl text-lg text-gray-600 leading-relaxed lg:text-xl">
+              <p className="mt-8 max-w-xl text-lg text-[#1A1A2E]/70 leading-relaxed lg:text-xl">
                 Everything you need to prospect, pitch, and win. Built for the Ailo sales team.
               </p>
             </div>
+          </div>
 
-            {/* Right side - Hero image (if available) */}
-            {heroImage && (
-              <div className="hidden lg:block flex-shrink-0 w-96 h-80">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={heroImage}
-                  alt="Hero"
-                  className="w-full h-full object-cover rounded-2xl shadow-2xl"
-                />
-              </div>
+          {/* Right: Image area - 45%, anchored to top */}
+          <div className="hidden lg:block lg:w-[45%] relative">
+            {heroImageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={heroImageUrl}
+                alt="Inspiration"
+                className="absolute inset-0 w-full h-full object-cover object-top"
+              />
+            ) : (
+              /* Fallback: gradient if no image */
+              <div className="absolute inset-0 bg-gradient-to-br from-[#EE0B4F]/30 to-[#6e8fcb]/30" />
             )}
+            {/* Gradient overlay that continues from text area */}
+            <div className="absolute inset-0 bg-gradient-to-r from-[#EE0B4F]/15 via-[#EE0B4F]/8 to-transparent pointer-events-none" />
           </div>
         </div>
       </section>
