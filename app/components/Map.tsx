@@ -34,6 +34,14 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
 
+// Target location for location search
+export interface TargetLocation {
+  lat: number;
+  lng: number;
+  zoom: number;
+  label: string;
+}
+
 interface MapProps {
   data: PostcodeStore;
   territories: Record<string, Territory>;
@@ -46,6 +54,8 @@ interface MapProps {
   filteredCompanies: CompanyData[];
   mode: AppMode;
   assignmentMode: AssignmentMode;
+  // Location search target
+  targetLocation?: TargetLocation | null;
   // Compliance zone props
   complianceZones: ComplianceZone[];
   showComplianceZones: boolean;
@@ -66,6 +76,21 @@ function MapViewController({ selectedState }: { selectedState: AustralianState }
     const bounds = STATE_BOUNDS[selectedState];
     map.setView(bounds.center, bounds.zoom);
   }, [selectedState, map]);
+
+  return null;
+}
+
+// Component to fly to a target location from search
+function FlyToLocation({ targetLocation }: { targetLocation: TargetLocation | null | undefined }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (targetLocation) {
+      map.flyTo([targetLocation.lat, targetLocation.lng], targetLocation.zoom, {
+        duration: 1,
+      });
+    }
+  }, [targetLocation, map]);
 
   return null;
 }
@@ -273,6 +298,7 @@ export default function Map({
   filteredCompanies,
   mode,
   assignmentMode,
+  targetLocation,
   complianceZones,
   showComplianceZones,
   complianceDrawEnabled,
@@ -329,6 +355,7 @@ export default function Map({
       />
       <MapViewController selectedState={selectedState} />
       <MapResizeHandler />
+      <FlyToLocation targetLocation={targetLocation} />
 
       {/* Territory assignment draw control in admin mode (disabled when compliance draw is active) */}
       {!isViewMode && !complianceDrawEnabled && (

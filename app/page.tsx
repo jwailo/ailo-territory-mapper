@@ -69,6 +69,8 @@ import AreaAnalysisPanel from './components/AreaAnalysisPanel';
 import SiteLoginScreen from './components/SiteLoginScreen';
 import AdminPasswordModal from './components/AdminPasswordModal';
 import ComplianceStatsBar from './components/ComplianceStatsBar';
+import LocationSearch from './components/LocationSearch';
+import { TargetLocation } from './components/Map';
 
 // Dynamic import for Map to avoid SSR issues with Leaflet
 const Map = dynamic(() => import('./components/Map'), {
@@ -122,6 +124,9 @@ export default function Home() {
 
   // Collapsible panel state
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
+
+  // Location search state
+  const [targetLocation, setTargetLocation] = useState<TargetLocation | null>(null);
 
   // Check authentication on mount
   useEffect(() => {
@@ -182,10 +187,15 @@ export default function Home() {
         ).length
       : 0;
     const filteredPUM = filteredCompanies.reduce((sum, c) => sum + (c.pum || 0), 0);
+    // Count companies that have valid coordinates (can be displayed on map)
+    const mappableCount = filteredCompanies.filter(
+      (c) => c.lat !== null && c.long !== null
+    ).length;
     return {
       filteredCount: filteredCompanies.length,
       totalCount,
       filteredPUM,
+      mappableCount,
     };
   }, [companyData, filteredCompanies, selectedState]);
 
@@ -554,6 +564,11 @@ export default function Home() {
     window.location.href = url;
   }, []);
 
+  // Location search handler
+  const handleLocationSelect = useCallback((location: TargetLocation) => {
+    setTargetLocation(location);
+  }, []);
+
   // Compliance zone handlers
   const handleComplianceZoneCreated = useCallback(
     async (polygon: number[][]) => {
@@ -743,14 +758,32 @@ export default function Home() {
           }`}
         >
           <div className="p-4 space-y-4">
-            {/* State selector is always visible */}
+            {/* State selector and Location Search are always visible */}
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
               <StateSelector selectedState={selectedState} onSelect={setSelectedState} />
+
+              {/* Location Search - spans remaining columns on first row */}
+              <div className="lg:col-span-3">
+                <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Location Search
+                  </label>
+                  <LocationSearch
+                    postcodes={data.postcodes}
+                    onLocationSelect={handleLocationSelect}
+                    placeholder="Search suburb, city, or postcode..."
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Mode-specific controls */}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
 
               {/* View Mode: Show filters panel and analysis panel */}
               {isViewMode && companyData && (
                 <>
-                  <div className="lg:col-span-2">
+                  <div className="lg:col-span-3">
                     <ViewModeFilters
                       companies={companyData.companies}
                       filters={companyFilters}
@@ -758,6 +791,7 @@ export default function Home() {
                       filteredCount={filteredStats.filteredCount}
                       totalCount={filteredStats.totalCount}
                       filteredPUM={filteredStats.filteredPUM}
+                      mappableCount={filteredStats.mappableCount}
                     />
                   </div>
                   <div className="lg:col-span-1 space-y-3">
@@ -791,12 +825,14 @@ export default function Home() {
               {/* Admin Mode: Show territory controls */}
               {!isViewMode && (
                 <>
-                  <TerritorySelector
-                    territories={territories}
-                    selectedTerritory={selectedTerritory}
-                    onSelect={setSelectedTerritory}
-                  />
-                  <div className="lg:col-span-2">
+                  <div className="lg:col-span-1">
+                    <TerritorySelector
+                      territories={territories}
+                      selectedTerritory={selectedTerritory}
+                      onSelect={setSelectedTerritory}
+                    />
+                  </div>
+                  <div className="lg:col-span-3">
                     <TerritoryManagementPanel
                       territories={territories}
                       territoryCounts={territoryCounts}
@@ -912,6 +948,7 @@ export default function Home() {
           filteredCompanies={filteredCompanies}
           mode={appMode}
           assignmentMode={assignmentMode}
+          targetLocation={targetLocation}
           complianceZones={complianceZones}
           showComplianceZones={showComplianceZones || complianceDrawEnabled}
           complianceDrawEnabled={complianceDrawEnabled}

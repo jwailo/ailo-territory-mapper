@@ -17,6 +17,7 @@ interface ViewModeFiltersProps {
   filteredCount: number;
   totalCount: number;
   filteredPUM: number;
+  mappableCount: number;
 }
 
 export default function ViewModeFilters({
@@ -26,6 +27,7 @@ export default function ViewModeFilters({
   filteredCount,
   totalCount,
   filteredPUM,
+  mappableCount,
 }: ViewModeFiltersProps) {
   const [searchInput, setSearchInput] = useState(filters.search);
   const [minPUMInput, setMinPUMInput] = useState<string>(filters.minPUM?.toString() ?? '');
@@ -74,20 +76,18 @@ export default function ViewModeFilters({
     isInitialMount.current = false;
   }, []);
 
-  // Get unique owners and stages from companies
-  const { owners, stages } = useMemo(() => {
+  // Lifecycle stages are limited to only Opportunity and Target
+  const ALLOWED_LIFECYCLE_STAGES: LifecycleStage[] = ['Opportunity', 'Target'];
+
+  // Get unique owners from companies
+  const owners = useMemo(() => {
     const ownerSet = new Set<string>();
-    const stageSet = new Set<LifecycleStage>();
 
     Object.values(companies).forEach((c) => {
       if (c.owner) ownerSet.add(c.owner);
-      if (c.lifecycleStage) stageSet.add(c.lifecycleStage);
     });
 
-    return {
-      owners: Array.from(ownerSet).sort(),
-      stages: Array.from(stageSet).sort(),
-    };
+    return Array.from(ownerSet).sort();
   }, [companies]);
 
   const handleOwnerToggle = (owner: string) => {
@@ -142,10 +142,9 @@ export default function ViewModeFilters({
         {/* Results Summary */}
         <div className="bg-red-50 border border-[#EE0B4F]/30 rounded-lg px-3 py-2">
           <p className="text-sm text-[#EE0B4F]">
-            Showing{' '}
-            <span className="font-bold">{filteredCount.toLocaleString()}</span>{' '}
-            of {totalCount.toLocaleString()} companies |{' '}
-            <span className="font-bold">Total PUM: {filteredPUM.toLocaleString()}</span>
+            <span className="font-bold">{mappableCount.toLocaleString()}</span> on map |{' '}
+            {filteredCount.toLocaleString()} match filters ({filteredCount - mappableCount} missing location) |{' '}
+            <span className="font-bold">PUM: {filteredPUM.toLocaleString()}</span>
           </p>
         </div>
 
@@ -194,7 +193,7 @@ export default function ViewModeFilters({
             Lifecycle Stage ({filters.stages.length > 0 ? filters.stages.length : 'All'})
           </label>
           <div className="flex flex-wrap gap-1">
-            {stages.map((stage) => {
+            {ALLOWED_LIFECYCLE_STAGES.map((stage) => {
               const isSelected = filters.stages.includes(stage);
               const color = LIFECYCLE_COLORS[stage];
               return (
