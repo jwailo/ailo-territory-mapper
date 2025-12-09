@@ -157,6 +157,11 @@ export function getCaseStudyUrl(): string {
   return `https://case-study-database-ailo.vercel.app/login?auth=${token}`;
 }
 
+export function getCostCalculatorUrl(): string {
+  const token = getAuthToken();
+  return `https://cost-comparison-tool.vercel.app/sales-dashboard.html?auth=${token}`;
+}
+
 // Validate an auth token from URL parameter
 export function validateAuthToken(token: string | null): boolean {
   if (!token) return false;

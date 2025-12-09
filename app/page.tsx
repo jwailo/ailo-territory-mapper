@@ -7,6 +7,7 @@ import type { LucideIcon } from 'lucide-react';
 import {
   isSiteAuthenticated,
   getCaseStudyUrl,
+  getCostCalculatorUrl,
   checkUrlAuthToken,
   generateAuthToken,
   getCurrentUser,
@@ -83,11 +84,10 @@ const tools = [
   },
   {
     title: 'True Cost Calculator',
-    description: 'See all True Cost Calculator completions',
+    description: 'Calculate and compare true costs for prospects',
     icon: Calculator,
-    href: '#',
-    internal: true,
-    comingSoon: true,
+    href: 'cost-calculator', // Will be dynamically generated with auth token
+    internal: false,
   },
 ];
 
@@ -97,32 +97,25 @@ function ToolCard({
   icon: Icon,
   href,
   internal,
-  comingSoon,
-  onCaseStudyClick,
+  onExternalClick,
 }: {
   title: string;
   description: string;
   icon: LucideIcon;
   href: string;
   internal: boolean;
-  comingSoon?: boolean;
-  onCaseStudyClick?: () => void;
+  onExternalClick?: () => void;
 }) {
   const [isHovered, setIsHovered] = useState(false);
   const [isClicked, setIsClicked] = useState(false);
 
   const handleClick = (e: React.MouseEvent) => {
-    if (comingSoon) {
-      e.preventDefault();
-      return;
-    }
-
-    if (!internal && onCaseStudyClick) {
+    if (!internal && onExternalClick) {
       e.preventDefault();
       setIsClicked(true);
       setTimeout(() => {
         setIsClicked(false);
-        onCaseStudyClick();
+        onExternalClick();
       }, 400);
       return;
     }
@@ -139,23 +132,19 @@ function ToolCard({
     <div
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className={`group relative block h-full ${comingSoon ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+      className="group relative block h-full cursor-pointer"
     >
-      <div className={`relative h-full overflow-hidden rounded-2xl border-2 border-gray-200 bg-white p-8 transition-all duration-300 ${
-        comingSoon
-          ? 'opacity-60'
-          : 'group-hover:border-[#EE0B4F] group-hover:shadow-2xl group-hover:shadow-[#EE0B4F]/20 group-hover:-translate-y-1'
-      }`}>
-        <div className={`absolute inset-0 bg-gradient-to-br from-[#EE0B4F]/10 via-transparent to-[#6e8fcb]/10 opacity-0 transition-opacity duration-500 ${!comingSoon && 'group-hover:opacity-100'}`} />
+      <div className="relative h-full overflow-hidden rounded-2xl border-2 border-gray-200 bg-white p-8 transition-all duration-300 group-hover:border-[#EE0B4F] group-hover:shadow-2xl group-hover:shadow-[#EE0B4F]/20 group-hover:-translate-y-1">
+        <div className="absolute inset-0 bg-gradient-to-br from-[#EE0B4F]/10 via-transparent to-[#6e8fcb]/10 opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
 
         <div className="relative flex flex-col h-full">
           <div className="relative mb-6 inline-flex">
             <div
               className={`flex h-16 w-16 items-center justify-center rounded-xl transition-all duration-700 ease-out ${
-                isClicked ? 'bg-[#EE0B4F] scale-150' : isHovered && !comingSoon ? 'bg-[#EE0B4F] scale-110' : 'bg-[#1A1A2E]'
+                isClicked ? 'bg-[#EE0B4F] scale-150' : isHovered ? 'bg-[#EE0B4F] scale-110' : 'bg-[#1A1A2E]'
               }`}
               style={{
-                transform: isClicked ? 'scale(1.5) rotate(360deg)' : isHovered && !comingSoon ? 'scale(1.1)' : 'scale(1)',
+                transform: isClicked ? 'scale(1.5) rotate(360deg)' : isHovered ? 'scale(1.1)' : 'scale(1)',
                 transition: 'all 700ms cubic-bezier(0.34, 1.56, 0.64, 1)',
               }}
             >
@@ -182,29 +171,19 @@ function ToolCard({
                 {word}
               </span>
             ))}
-            <span className={`block h-0.5 w-0 bg-[#EE0B4F] transition-all duration-300 ${!comingSoon && 'group-hover:w-full'}`} />
+            <span className="block h-0.5 w-0 bg-[#EE0B4F] transition-all duration-300 group-hover:w-full" />
           </h3>
 
           <p className="mb-6 text-gray-600 leading-relaxed flex-1">{description}</p>
 
-          {comingSoon ? (
-            <div className="flex items-center gap-2 text-sm font-semibold text-gray-400">
-              <span>Coming soon</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 text-sm font-semibold text-[#EE0B4F] opacity-0 transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-2">
-              <span>Launch tool</span>
-              <ArrowRight className="h-4 w-4" />
-            </div>
-          )}
+          <div className="flex items-center gap-2 text-sm font-semibold text-[#EE0B4F] opacity-0 transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-2">
+            <span>Launch tool</span>
+            <ArrowRight className="h-4 w-4" />
+          </div>
         </div>
       </div>
     </div>
   );
-
-  if (comingSoon) {
-    return <div className="h-full">{CardContent}</div>;
-  }
 
   if (internal) {
     return (
@@ -273,6 +252,12 @@ export default function Home() {
   // Case Study Database handler
   const handleCaseStudyClick = () => {
     const url = getCaseStudyUrl();
+    window.location.href = url;
+  };
+
+  // Cost Calculator handler
+  const handleCostCalculatorClick = () => {
+    const url = getCostCalculatorUrl();
     window.location.href = url;
   };
 
@@ -393,18 +378,27 @@ export default function Home() {
           </div>
 
           <div className="grid gap-12 md:grid-cols-2 lg:grid-cols-3 items-stretch">
-            {tools.map((tool) => (
-              <ToolCard
-                key={tool.title}
-                title={tool.title}
-                description={tool.description}
-                icon={tool.icon}
-                href={tool.href}
-                internal={tool.internal}
-                comingSoon={tool.comingSoon}
-                onCaseStudyClick={tool.title === 'Case Study Database' ? handleCaseStudyClick : undefined}
-              />
-            ))}
+            {tools.map((tool) => {
+              // Determine the external click handler based on tool title
+              let externalClickHandler: (() => void) | undefined;
+              if (tool.title === 'Case Study Database') {
+                externalClickHandler = handleCaseStudyClick;
+              } else if (tool.title === 'True Cost Calculator') {
+                externalClickHandler = handleCostCalculatorClick;
+              }
+
+              return (
+                <ToolCard
+                  key={tool.title}
+                  title={tool.title}
+                  description={tool.description}
+                  icon={tool.icon}
+                  href={tool.href}
+                  internal={tool.internal}
+                  onExternalClick={externalClickHandler}
+                />
+              );
+            })}
           </div>
         </div>
       </section>
