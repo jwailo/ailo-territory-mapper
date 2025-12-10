@@ -9,7 +9,17 @@ html, body {
   height: 100%;
   margin: 0;
   padding: 0;
-  overflow: hidden;
+}
+
+/* Allow scrolling by default - specific pages can override */
+html {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+body {
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 body {

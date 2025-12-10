@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { MapPin, FolderOpen, Calculator, ArrowRight, Sparkles, Settings, BarChart3, Users, ChevronDown, LogOut } from 'lucide-react';
+import { MapPin, FolderOpen, Calculator, ArrowRight, Settings, BarChart3, Users, ChevronDown, LogOut } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import {
   isSiteAuthenticated,
@@ -415,8 +415,11 @@ export default function Home() {
       <header className="relative z-10 bg-[#1A1A2E]">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6 lg:px-8 lg:py-8">
           <div className="flex items-center gap-4">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/ASET-White.png" alt="ASET" className="h-12 w-auto lg:h-14" />
+            <div className="flex flex-col">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/ASET-White.png" alt="ASET" className="h-10 w-auto lg:h-12" />
+              <span className="text-xs text-white/60 tracking-wide">Ailo Sales Enablement Tool</span>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             {currentUser && (
@@ -478,11 +481,6 @@ export default function Home() {
                   </span>
                 </div>
               )}
-
-              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#1A1A2E]/20 bg-[#1A1A2E]/5 backdrop-blur-sm px-4 py-2">
-                <Sparkles className="h-4 w-4 text-[#EE0B4F]" />
-                <span className="text-sm font-medium text-[#1A1A2E]/80">Your sales toolkit</span>
-              </div>
 
               <h1 className="max-w-4xl text-balance">
                 <span className="block text-5xl font-black tracking-tight text-[#1A1A2E] sm:text-6xl lg:text-7xl xl:text-8xl">

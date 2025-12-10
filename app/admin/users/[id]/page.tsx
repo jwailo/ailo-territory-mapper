@@ -3,7 +3,8 @@
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Plus, Trash2, X, Save, Music, Image, MessageSquareQuote, Heart } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, X, Save, Music, Image, MessageSquareQuote, Heart, Upload, Loader2 } from 'lucide-react';
+import { useRef } from 'react';
 import { getCurrentUser } from '../../../utils/auth';
 import { supabase } from '../../../utils/supabase';
 import {
@@ -56,6 +57,12 @@ export default function UserPersonalisationPage({ params }: { params: Promise<{ 
   const [editingQuoteIndex, setEditingQuoteIndex] = useState<number | null>(null);
   const [editQuoteContent, setEditQuoteContent] = useState('');
   const [editQuoteAttribution, setEditQuoteAttribution] = useState('');
+
+  // File upload state
+  const [uploadingProfile, setUploadingProfile] = useState(false);
+  const [uploadingHero, setUploadingHero] = useState(false);
+  const profileInputRef = useRef<HTMLInputElement>(null);
+  const heroInputRef = useRef<HTMLInputElement>(null);
 
   // Check admin access and load data
   useEffect(() => {
@@ -110,6 +117,88 @@ export default function UserPersonalisationPage({ params }: { params: Promise<{ 
 
     loadData();
   }, [resolvedParams.id, router]);
+
+  // File upload handlers
+  const handleProfileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    setUploadingProfile(true);
+    setError('');
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('userId', user.id);
+      formData.append('type', 'profile');
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setPhotoUrl(result.url);
+        setSuccess('Profile photo uploaded successfully!');
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        setError(result.error || 'Failed to upload image');
+      }
+    } catch (err) {
+      setError('Failed to upload image');
+      console.error('Upload error:', err);
+    } finally {
+      setUploadingProfile(false);
+      if (profileInputRef.current) {
+        profileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleHeroUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    if (heroImages.length >= HERO_IMAGE_MAX_COUNT) {
+      setError(`Maximum ${HERO_IMAGE_MAX_COUNT} hero images allowed`);
+      return;
+    }
+
+    setUploadingHero(true);
+    setError('');
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('userId', user.id);
+      formData.append('type', 'hero');
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setHeroImages([...heroImages, result.url]);
+        setSuccess('Hero image uploaded successfully!');
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        setError(result.error || 'Failed to upload image');
+      }
+    } catch (err) {
+      setError('Failed to upload image');
+      console.error('Upload error:', err);
+    } finally {
+      setUploadingHero(false);
+      if (heroInputRef.current) {
+        heroInputRef.current.value = '';
+      }
+    }
+  };
 
   const handleAddHeroImage = () => {
     if (!newHeroImage.trim()) return;
@@ -322,20 +411,55 @@ export default function UserPersonalisationPage({ params }: { params: Promise<{ 
                   />
                 </div>
               )}
-              <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Photo URL
-                </label>
-                <input
-                  type="text"
-                  value={photoUrl}
-                  onChange={(e) => setPhotoUrl(e.target.value)}
-                  placeholder="/team-images/user-photo.png"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE0B4F] focus:border-[#EE0B4F]"
-                />
-                <p className="mt-1 text-xs text-gray-500">
-                  Use a path like /team-images/name.png or a full URL
-                </p>
+              <div className="flex-1 space-y-4">
+                {/* File Upload */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Upload Photo
+                  </label>
+                  <input
+                    ref={profileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    onChange={handleProfileUpload}
+                    className="hidden"
+                    id="profile-upload"
+                  />
+                  <label
+                    htmlFor="profile-upload"
+                    className={`inline-flex items-center gap-2 px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-[#EE0B4F] hover:bg-[#EE0B4F]/5 transition-colors ${uploadingProfile ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    {uploadingProfile ? (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin text-[#EE0B4F]" />
+                        <span className="text-sm text-gray-600">Uploading...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-5 w-5 text-gray-500" />
+                        <span className="text-sm text-gray-600">Choose file to upload</span>
+                      </>
+                    )}
+                  </label>
+                  <p className="mt-1 text-xs text-gray-500">JPEG, PNG, GIF, or WebP. Max 5MB.</p>
+                </div>
+
+                {/* URL Input */}
+                <div className="border-t pt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Or enter URL manually
+                  </label>
+                  <input
+                    type="text"
+                    value={photoUrl}
+                    onChange={(e) => setPhotoUrl(e.target.value)}
+                    placeholder="/team-images/user-photo.png"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE0B4F] focus:border-[#EE0B4F]"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Use a path like /team-images/name.png or a full URL
+                  </p>
+                </div>
               </div>
             </div>
           </section>
@@ -376,23 +500,61 @@ export default function UserPersonalisationPage({ params }: { params: Promise<{ 
               </div>
             )}
 
-            {/* Add new image */}
-            <div className="flex gap-2">
+            {/* Upload new image */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Upload Image
+              </label>
               <input
-                type="text"
-                value={newHeroImage}
-                onChange={(e) => setNewHeroImage(e.target.value)}
-                placeholder="/user-images/user/hero/image.png"
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE0B4F] focus:border-[#EE0B4F]"
-                onKeyDown={(e) => e.key === 'Enter' && handleAddHeroImage()}
-              />
-              <button
-                onClick={handleAddHeroImage}
+                ref={heroInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                onChange={handleHeroUpload}
+                className="hidden"
+                id="hero-upload"
                 disabled={heroImages.length >= HERO_IMAGE_MAX_COUNT}
-                className="px-4 py-2 bg-[#EE0B4F] hover:bg-[#c4093f] text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+              <label
+                htmlFor="hero-upload"
+                className={`inline-flex items-center gap-2 px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-[#EE0B4F] hover:bg-[#EE0B4F]/5 transition-colors ${uploadingHero || heroImages.length >= HERO_IMAGE_MAX_COUNT ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
-                <Plus className="h-5 w-5" />
-              </button>
+                {uploadingHero ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin text-[#EE0B4F]" />
+                    <span className="text-sm text-gray-600">Uploading...</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-5 w-5 text-gray-500" />
+                    <span className="text-sm text-gray-600">Choose file to upload</span>
+                  </>
+                )}
+              </label>
+              <p className="mt-1 text-xs text-gray-500">JPEG, PNG, GIF, or WebP. Max 5MB.</p>
+            </div>
+
+            {/* Or add by URL */}
+            <div className="border-t pt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Or add by URL
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newHeroImage}
+                  onChange={(e) => setNewHeroImage(e.target.value)}
+                  placeholder="/user-images/user/hero/image.png"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE0B4F] focus:border-[#EE0B4F]"
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddHeroImage()}
+                />
+                <button
+                  onClick={handleAddHeroImage}
+                  disabled={heroImages.length >= HERO_IMAGE_MAX_COUNT}
+                  className="px-4 py-2 bg-[#EE0B4F] hover:bg-[#c4093f] text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Plus className="h-5 w-5" />
+                </button>
+              </div>
             </div>
             <p className="mt-2 text-xs text-gray-500">
               Currently {heroImages.length} of {HERO_IMAGE_MAX_COUNT} images
