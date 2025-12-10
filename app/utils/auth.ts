@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { supabase } from './supabase';
+import { trackLogin } from './analytics';
 
 // User type
 export interface User {
@@ -53,6 +54,9 @@ export async function loginUser(
 
     setCurrentUser(userData);
     generateAuthToken(user.id);
+
+    // Track login event
+    trackLogin(userData.email, userData.name);
 
     return { success: true, user: userData };
   } catch (err) {

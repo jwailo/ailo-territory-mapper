@@ -47,3 +47,26 @@ export interface DbComplianceZone {
   created_at: string;
   updated_at: string;
 }
+
+// Analytics event types
+export type ToolName = 'territory_map' | 'cost_calculator' | 'case_study_library' | 'admin' | 'aset_hub';
+export type EventAction =
+  | 'page_view'
+  | 'tool_open'
+  | 'button_click'
+  | 'login'
+  | 'logout'
+  | 'user_created'
+  | 'user_deleted'
+  | 'password_reset';
+
+export interface DbEvent {
+  id: string;
+  user_id: string | null;
+  user_email: string | null;
+  user_name: string | null;
+  tool_name: ToolName;
+  action: EventAction;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+}

@@ -1,20 +1,48 @@
 // Loading quotes for ASET
-// Bern's mantras have no attribution, all others include attribution
+// Now supports user-specific quotes loaded from preferences
+// Fall back to default quotes when user has none configured
 
 export interface Quote {
   content: string;
   attribution?: string;
 }
 
-// Bern's personal mantras - no attribution
-const bernMantras: Quote[] = [
+// Default fallback quotes (used when user has no custom quotes)
+// These are a subset for non-authenticated or new users
+export const defaultQuotes: Quote[] = [
+  {
+    content:
+      "Working hard for something we don't care about is called stress. Working hard for something we love is called passion.",
+    attribution: 'Simon Sinek',
+  },
+  {
+    content: "People don't buy what you do; they buy why you do it.",
+    attribution: 'Simon Sinek',
+  },
+  {
+    content: 'Dream big. Start small. But most of all, start.',
+    attribution: 'Simon Sinek',
+  },
+  {
+    content: "I don't have dreams. I have goals.",
+    attribution: 'Harvey Specter',
+  },
+  {
+    content: 'The only time success comes before work is in the dictionary.',
+    attribution: 'Harvey Specter',
+  },
+];
+
+// Legacy: Bern's personal mantras - will be migrated to her preferences
+export const bernMantras: Quote[] = [
   { content: 'This too shall pass' },
   { content: 'A winner is a loser who tried one more time' },
   { content: "Yesterday's home runs don't win today's games" },
 ];
 
-// Usain Bolt quotes
-const usainBoltQuotes: Quote[] = [
+// Legacy: All inspirational quotes - will be migrated to user preferences
+export const inspirationalQuotes: Quote[] = [
+  // Usain Bolt
   {
     content:
       "Worrying gets you nowhere. If you turn up worrying about how you're going to perform, you've already lost.",
@@ -44,10 +72,7 @@ const usainBoltQuotes: Quote[] = [
       "I work hard, and I do good, and I'm going to enjoy myself. I'm not going to let you restrict me.",
     attribution: 'Usain Bolt',
   },
-];
-
-// Simon Sinek quotes
-const simonSinekQuotes: Quote[] = [
+  // Simon Sinek
   {
     content:
       "Working hard for something we don't care about is called stress. Working hard for something we love is called passion.",
@@ -75,10 +100,7 @@ const simonSinekQuotes: Quote[] = [
       'A team is not a group of people that work together. A team is a group of people that trust each other.',
     attribution: 'Simon Sinek',
   },
-];
-
-// Oprah Winfrey quotes
-const oprahWinfreyQuotes: Quote[] = [
+  // Oprah Winfrey
   {
     content: 'The biggest adventure you can take is to live the life of your dreams.',
     attribution: 'Oprah Winfrey',
@@ -99,10 +121,7 @@ const oprahWinfreyQuotes: Quote[] = [
   },
   { content: 'Turn your wounds into wisdom.', attribution: 'Oprah Winfrey' },
   { content: 'Where there is no struggle, there is no strength.', attribution: 'Oprah Winfrey' },
-];
-
-// Harvey Specter (Suits) quotes
-const harveySpecterQuotes: Quote[] = [
+  // Harvey Specter
   { content: "I don't have dreams. I have goals.", attribution: 'Harvey Specter' },
   {
     content: "Winners don't make excuses when the other side plays the game.",
@@ -127,25 +146,43 @@ const harveySpecterQuotes: Quote[] = [
   },
 ];
 
-// All quotes combined
-export const allQuotes: Quote[] = [
-  ...bernMantras,
-  ...usainBoltQuotes,
-  ...simonSinekQuotes,
-  ...oprahWinfreyQuotes,
-  ...harveySpecterQuotes,
-];
+// Combined legacy quotes for backward compatibility
+export const allQuotes: Quote[] = [...bernMantras, ...inspirationalQuotes];
 
-// Get a random quote
+/**
+ * Get a random quote from the default set
+ * Used for non-authenticated users or as fallback
+ */
 export function getRandomQuote(): Quote {
-  const randomIndex = Math.floor(Math.random() * allQuotes.length);
-  return allQuotes[randomIndex];
+  const randomIndex = Math.floor(Math.random() * defaultQuotes.length);
+  return defaultQuotes[randomIndex];
 }
 
-// Format quote for display
+/**
+ * Get a random quote from a specific array
+ */
+export function getRandomQuoteFrom(quotes: Quote[]): Quote | null {
+  if (!quotes || quotes.length === 0) {
+    return null;
+  }
+  const randomIndex = Math.floor(Math.random() * quotes.length);
+  return quotes[randomIndex];
+}
+
+/**
+ * Format quote for display
+ */
 export function formatQuote(quote: Quote): string {
   if (quote.attribution) {
     return `"${quote.content}" — ${quote.attribution}`;
   }
   return `"${quote.content}"`;
+}
+
+/**
+ * Get Bern's default quotes for migration
+ * Combines her mantras with inspirational quotes
+ */
+export function getBernDefaultQuotes(): Quote[] {
+  return [...bernMantras, ...inspirationalQuotes];
 }

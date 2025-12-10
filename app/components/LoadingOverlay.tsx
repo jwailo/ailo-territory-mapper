@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { getRandomQuote, Quote } from '../data/loadingQuotes';
+import { Quote } from '../data/loadingQuotes';
 
 interface LoadingOverlayProps {
   isLoading: boolean;
   showQuote?: boolean;
+  quote?: Quote | null; // Optional user-specific quote
   className?: string;
   delay?: number; // ms to wait before showing (default 500ms)
 }
@@ -13,24 +14,27 @@ interface LoadingOverlayProps {
 export default function LoadingOverlay({
   isLoading,
   showQuote = true,
+  quote: propQuote,
   className = '',
   delay = 500,
 }: LoadingOverlayProps) {
-  const [quote, setQuote] = useState<Quote | null>(null);
+  const [displayQuote, setDisplayQuote] = useState<Quote | null>(propQuote || null);
   const [shouldShow, setShouldShow] = useState(false);
   const [isFadingOut, setIsFadingOut] = useState(false);
   const delayTimerRef = useRef<NodeJS.Timeout | null>(null);
   const loadingStartRef = useRef<number | null>(null);
 
+  // Update quote when prop changes
+  useEffect(() => {
+    if (propQuote) {
+      setDisplayQuote(propQuote);
+    }
+  }, [propQuote]);
+
   useEffect(() => {
     if (isLoading) {
       // Track when loading started
       loadingStartRef.current = Date.now();
-
-      // Set quote immediately (so it's ready when we show)
-      if (showQuote) {
-        setQuote(getRandomQuote());
-      }
 
       // Wait for delay before showing overlay
       delayTimerRef.current = setTimeout(() => {
@@ -62,7 +66,7 @@ export default function LoadingOverlay({
         clearTimeout(delayTimerRef.current);
       }
     };
-  }, [isLoading, showQuote, delay]);
+  }, [isLoading, delay, shouldShow]);
 
   // Don't render if we shouldn't show yet
   if (!shouldShow) {
@@ -86,18 +90,18 @@ export default function LoadingOverlay({
       </div>
 
       {/* Optional quote */}
-      {showQuote && quote && (
+      {showQuote && displayQuote && (
         <div className="max-w-md px-6 text-center">
           <p className="text-sm italic text-white/70 leading-relaxed">
-            {quote.attribution ? (
+            {displayQuote.attribution ? (
               <>
-                &ldquo;{quote.content}&rdquo;
+                &ldquo;{displayQuote.content}&rdquo;
                 <span className="mt-2 block text-xs text-white/50 not-italic">
-                  — {quote.attribution}
+                  — {displayQuote.attribution}
                 </span>
               </>
             ) : (
-              <>&ldquo;{quote.content}&rdquo;</>
+              <>&ldquo;{displayQuote.content}&rdquo;</>
             )}
           </p>
         </div>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { MapPin, FolderOpen, Calculator, ArrowRight, Sparkles, Settings } from 'lucide-react';
+import { MapPin, FolderOpen, Calculator, ArrowRight, Sparkles, Settings, BarChart3, Users, ChevronDown } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import {
   isSiteAuthenticated,
@@ -13,6 +13,13 @@ import {
   getCurrentUser,
   User,
 } from './utils/auth';
+import { trackToolOpen, trackButtonClick, trackPageView } from './utils/analytics';
+import {
+  getUserPreferences,
+  getWeeklyHeroImage as getWeeklyHeroFromPrefs,
+  getProfilePhotoUrl as getProfilePhotoFromPrefs,
+  UserPreferences,
+} from './utils/userPreferences';
 import SiteLoginScreen from './components/SiteLoginScreen';
 
 // Bern's hero images - rotate weekly (changes every Monday)
@@ -98,6 +105,7 @@ function ToolCard({
   href,
   internal,
   onExternalClick,
+  onInternalClick,
 }: {
   title: string;
   description: string;
@@ -105,6 +113,7 @@ function ToolCard({
   href: string;
   internal: boolean;
   onExternalClick?: () => void;
+  onInternalClick?: () => void;
 }) {
   const [isHovered, setIsHovered] = useState(false);
   const [isClicked, setIsClicked] = useState(false);
@@ -121,6 +130,10 @@ function ToolCard({
     }
 
     if (internal) {
+      // Fire internal click handler for tracking
+      if (onInternalClick) {
+        onInternalClick();
+      }
       setIsClicked(true);
       setTimeout(() => {
         setIsClicked(false);
@@ -200,6 +213,54 @@ function ToolCard({
   );
 }
 
+// Admin dropdown menu component
+function AdminDropdown() {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center gap-1 p-2 rounded-lg hover:bg-white/10 transition-colors"
+        title="Admin Menu"
+      >
+        <Settings className="h-5 w-5 text-white/70 hover:text-white" />
+        <ChevronDown className={`h-4 w-4 text-white/70 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      {isOpen && (
+        <>
+          {/* Backdrop to close dropdown */}
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setIsOpen(false)}
+          />
+
+          {/* Dropdown menu */}
+          <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-50">
+            <Link
+              href="/admin/users"
+              onClick={() => setIsOpen(false)}
+              className="flex items-center gap-3 px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              <Users className="h-4 w-4 text-gray-500" />
+              <span className="text-sm font-medium">Users</span>
+            </Link>
+            <Link
+              href="/admin/analytics"
+              onClick={() => setIsOpen(false)}
+              className="flex items-center gap-3 px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              <BarChart3 className="h-4 w-4 text-gray-500" />
+              <span className="text-sm font-medium">Analytics</span>
+            </Link>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function Home() {
   // Use lazy initialization to check auth status synchronously on first render
   const [authState, setAuthState] = useState<{ authenticated: boolean; checked: boolean; user: User | null }>(() => {
@@ -214,6 +275,10 @@ export default function Home() {
     const isAuth = isSiteAuthenticated();
     return { authenticated: isAuth, checked: true, user: isAuth ? getCurrentUser() : null };
   });
+
+  // User preferences state
+  const [userPrefs, setUserPrefs] = useState<UserPreferences | null>(null);
+  const [prefsLoaded, setPrefsLoaded] = useState(false);
 
   const siteAuthenticated = authState.authenticated;
   const authChecked = authState.checked;
@@ -236,29 +301,51 @@ export default function Home() {
     }
   }, [authState.checked]);
 
-  // Generate auth token when authenticated
+  // Generate auth token, track page view, and load preferences when authenticated
   useEffect(() => {
     if (siteAuthenticated) {
       generateAuthToken();
+      trackPageView('aset_hub', 'home');
+
+      // Load user preferences
+      if (currentUser && !prefsLoaded) {
+        getUserPreferences(currentUser.id).then((prefs) => {
+          setUserPrefs(prefs);
+          setPrefsLoaded(true);
+        });
+      }
     }
-  }, [siteAuthenticated]);
+  }, [siteAuthenticated, currentUser, prefsLoaded]);
 
   
-  // Handle walk-on song click - opens Bern's walk-on song in new tab
+  // Handle walk-on song click - opens user's walk-on song in new tab
   const handleWalkonSongClick = () => {
-    window.open(WALKON_SONG_URL, '_blank');
+    trackButtonClick('aset_hub', 'walkon_song');
+    // Use user's walk-on song if set, otherwise fall back to default
+    const songUrl = userPrefs?.walkon_song_url || WALKON_SONG_URL;
+    window.open(songUrl, '_blank');
   };
+
+  // Get current walk-on button label
+  const walkonButtonLabel = userPrefs?.walkon_button_label || 'Get fired up';
 
   // Case Study Database handler
   const handleCaseStudyClick = () => {
+    trackToolOpen('case_study_library');
     const url = getCaseStudyUrl();
     window.location.href = url;
   };
 
   // Cost Calculator handler
   const handleCostCalculatorClick = () => {
+    trackToolOpen('cost_calculator');
     const url = getCostCalculatorUrl();
     window.location.href = url;
+  };
+
+  // Territory Map handler (for tracking)
+  const handleTerritoryMapClick = () => {
+    trackToolOpen('territory_map');
   };
 
   // Show nothing while checking auth status
@@ -275,8 +362,11 @@ export default function Home() {
     return <SiteLoginScreen onAuthenticated={handleAuthenticated} />;
   }
 
-  // Get weekly rotating hero image
-  const heroImageUrl = getWeeklyHeroImage();
+  // Get hero image - use user's preferences if set, otherwise fall back to hardcoded Bern's images
+  const heroImageUrl = getWeeklyHeroFromPrefs(userPrefs) || getWeeklyHeroImage();
+
+  // Get profile photo - use user's preferences if set, otherwise fall back to hardcoded
+  const profilePhotoUrl = getProfilePhotoFromPrefs(userPrefs) || PROFILE_PHOTO_URL;
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -298,22 +388,16 @@ export default function Home() {
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#EE0B4F]/20 hover:bg-[#EE0B4F]/30 border border-[#EE0B4F]/30 transition-all group cursor-pointer"
                     title="Tick Tick Boom - Sage the Gemini"
                   >
-                    <span className="text-sm font-medium text-white">Get fired up</span>
+                    <span className="text-sm font-medium text-white">{walkonButtonLabel}</span>
                     <span className="text-base group-hover:animate-pulse">🔥</span>
                   </button>
                 </div>
                 {currentUser.role === 'admin' && (
-                  <Link
-                    href="/admin/users"
-                    className="p-2 rounded-lg hover:bg-white/10 transition-colors"
-                    title="User Management"
-                  >
-                    <Settings className="h-5 w-5 text-white/70 hover:text-white" />
-                  </Link>
+                  <AdminDropdown />
                 )}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={PROFILE_PHOTO_URL}
+                  src={profilePhotoUrl}
                   alt={currentUser.name}
                   className="h-9 w-9 rounded-full border-2 border-white/20 object-cover"
                 />
@@ -379,12 +463,14 @@ export default function Home() {
 
           <div className="grid gap-12 md:grid-cols-2 lg:grid-cols-3 items-stretch">
             {tools.map((tool) => {
-              // Determine the external click handler based on tool title
-              let externalClickHandler: (() => void) | undefined;
+              // Determine the click handler based on tool title
+              let clickHandler: (() => void) | undefined;
               if (tool.title === 'Case Study Database') {
-                externalClickHandler = handleCaseStudyClick;
+                clickHandler = handleCaseStudyClick;
               } else if (tool.title === 'True Cost Calculator') {
-                externalClickHandler = handleCostCalculatorClick;
+                clickHandler = handleCostCalculatorClick;
+              } else if (tool.title === 'Territory Map') {
+                clickHandler = handleTerritoryMapClick;
               }
 
               return (
@@ -395,7 +481,8 @@ export default function Home() {
                   icon={tool.icon}
                   href={tool.href}
                   internal={tool.internal}
-                  onExternalClick={externalClickHandler}
+                  onExternalClick={!tool.internal ? clickHandler : undefined}
+                  onInternalClick={tool.internal ? clickHandler : undefined}
                 />
               );
             })}

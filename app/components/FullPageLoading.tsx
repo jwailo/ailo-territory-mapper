@@ -1,25 +1,25 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getRandomQuote, Quote } from '../data/loadingQuotes';
+import { Quote } from '../data/loadingQuotes';
 
 interface FullPageLoadingProps {
   onLoadingComplete?: () => void;
   minDisplayTime?: number; // milliseconds
+  quote?: Quote | null; // Optional user-specific quote
+  showQuote?: boolean; // Whether to show quote at all (default: true)
 }
 
 export default function FullPageLoading({
   onLoadingComplete,
   minDisplayTime = 2500,
+  quote,
+  showQuote = true,
 }: FullPageLoadingProps) {
-  const [quote, setQuote] = useState<Quote | null>(null);
   const [isVisible, setIsVisible] = useState(true);
   const [isFadingOut, setIsFadingOut] = useState(false);
 
   useEffect(() => {
-    // Set a random quote on mount
-    setQuote(getRandomQuote());
-
     // Start fade out after minimum display time
     const fadeTimer = setTimeout(() => {
       setIsFadingOut(true);
@@ -63,8 +63,8 @@ export default function FullPageLoading({
         </div>
       </div>
 
-      {/* Quote */}
-      {quote && (
+      {/* Quote - only show if showQuote is true AND we have a quote */}
+      {showQuote && quote && (
         <div className="max-w-lg px-6 text-center">
           <p className="text-lg italic text-white/80 leading-relaxed">
             {quote.attribution ? (
