@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { MapPin, FolderOpen, Calculator, ArrowRight, Sparkles, Settings, BarChart3, Users, ChevronDown } from 'lucide-react';
+import { MapPin, FolderOpen, Calculator, ArrowRight, Sparkles, Settings, BarChart3, Users, ChevronDown, LogOut } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import {
   isSiteAuthenticated,
@@ -11,6 +11,7 @@ import {
   checkUrlAuthToken,
   generateAuthToken,
   getCurrentUser,
+  clearCurrentUser,
   User,
 } from './utils/auth';
 import { trackToolOpen, trackButtonClick, trackPageView } from './utils/analytics';
@@ -18,6 +19,7 @@ import {
   getUserPreferences,
   getWeeklyHeroImage as getWeeklyHeroFromPrefs,
   getProfilePhotoUrl as getProfilePhotoFromPrefs,
+  clearPreferencesCache,
   UserPreferences,
 } from './utils/userPreferences';
 import SiteLoginScreen from './components/SiteLoginScreen';
@@ -51,27 +53,44 @@ function getWeeklyHeroImage(): string {
   return bernHeroImages[weekNumber % bernHeroImages.length];
 }
 
-// Time-based greeting helper
+// Sales-focused time-based greetings
+const morningGreetings = [
+  (name: string) => `Rise and close, ${name}!`,
+  (name: string) => `New day, new deals, ${name}! Let's go!`,
+  (name: string) => `The early bird gets the commission, ${name}!`,
+  (name: string) => `Good morning, ${name}! Time to make it happen!`,
+];
+
+const afternoonGreetings = [
+  (name: string) => `Keep that momentum going, ${name}!`,
+  (name: string) => `Afternoon push, ${name}! Finish strong!`,
+  (name: string) => `Halfway there, ${name}! Let's close some deals!`,
+  (name: string) => `Stay hungry, ${name}! The day's not over!`,
+];
+
+const eveningGreetings = [
+  (name: string) => `Closing time, ${name}! One more deal?`,
+  (name: string) => `End the day on a win, ${name}!`,
+  (name: string) => `Evening grind, ${name}! Champions work late!`,
+  (name: string) => `Still here, still winning, ${name}!`,
+];
+
+// Time-based greeting helper - returns a random sales-focused greeting
 function getTimeBasedGreeting(firstName: string): string {
   const now = new Date();
   const hour = now.getHours();
-  const dayOfWeek = now.getDay();
-  const isFriday = dayOfWeek === 5;
 
-  let greeting: string;
+  let greetings: ((name: string) => string)[];
   if (hour < 12) {
-    greeting = `Morning ${firstName} - let's get after it`;
+    greetings = morningGreetings;
   } else if (hour < 17) {
-    greeting = `Afternoon ${firstName} - keep pushing`;
+    greetings = afternoonGreetings;
   } else {
-    greeting = `Evening ${firstName} - finish strong`;
+    greetings = eveningGreetings;
   }
 
-  if (isFriday) {
-    greeting += ' - Happy Friday!';
-  }
-
-  return greeting;
+  const randomIndex = Math.floor(Math.random() * greetings.length);
+  return greetings[randomIndex](firstName);
 }
 
 const tools = [
@@ -329,6 +348,16 @@ export default function Home() {
   // Get current walk-on button label
   const walkonButtonLabel = userPrefs?.walkon_button_label || 'Get fired up';
 
+  // Handle logout
+  const handleLogout = () => {
+    trackButtonClick('aset_hub', 'logout');
+    clearCurrentUser();
+    clearPreferencesCache();
+    setAuthState({ authenticated: false, checked: true, user: null });
+    setUserPrefs(null);
+    setPrefsLoaded(false);
+  };
+
   // Case Study Database handler
   const handleCaseStudyClick = () => {
     trackToolOpen('case_study_library');
@@ -376,31 +405,36 @@ export default function Home() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/ASET-White.png" alt="ASET" className="h-12 w-auto lg:h-14" />
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             {currentUser && (
               <>
-                <div className="hidden sm:flex items-center gap-3">
-                  <span className="text-sm text-white/70">
-                    {getTimeBasedGreeting(currentUser.name.split(' ')[0])}
-                  </span>
-                  <button
-                    onClick={handleWalkonSongClick}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#EE0B4F]/20 hover:bg-[#EE0B4F]/30 border border-[#EE0B4F]/30 transition-all group cursor-pointer"
-                    title="Tick Tick Boom - Sage the Gemini"
-                  >
-                    <span className="text-sm font-medium text-white">{walkonButtonLabel}</span>
-                    <span className="text-base group-hover:animate-pulse">🔥</span>
-                  </button>
-                </div>
+                {/* Walk-on song button */}
+                <button
+                  onClick={handleWalkonSongClick}
+                  className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#EE0B4F]/20 hover:bg-[#EE0B4F]/30 border border-[#EE0B4F]/30 transition-all group cursor-pointer"
+                  title="Play your walk-on song"
+                >
+                  <span className="text-sm font-medium text-white">{walkonButtonLabel}</span>
+                  <span className="text-base group-hover:animate-pulse">🔥</span>
+                </button>
                 {currentUser.role === 'admin' && (
                   <AdminDropdown />
                 )}
+                {/* Profile photo */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={profilePhotoUrl}
                   alt={currentUser.name}
                   className="h-9 w-9 rounded-full border-2 border-white/20 object-cover"
                 />
+                {/* Logout button */}
+                <button
+                  onClick={handleLogout}
+                  className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+                  title="Logout"
+                >
+                  <LogOut className="h-5 w-5 text-white/70 hover:text-white" />
+                </button>
               </>
             )}
             {!currentUser && (
@@ -415,7 +449,16 @@ export default function Home() {
           {/* Left: Text area - 55% with diagonal light gradient in Ailo colours */}
           <div className="w-full lg:w-[55%] flex items-center px-6 lg:px-12 py-16 lg:py-24 bg-gradient-to-br from-[#EE0B4F]/15 via-[#EE0B4F]/8 via-50% to-[#6e8fcb]/10">
             <div className="max-w-2xl">
-              <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-[#1A1A2E]/20 bg-[#1A1A2E]/5 backdrop-blur-sm px-4 py-2">
+              {/* Time-based greeting */}
+              {currentUser && (
+                <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#EE0B4F]/30 bg-[#EE0B4F]/10 backdrop-blur-sm px-4 py-2">
+                  <span className="text-sm font-semibold text-[#EE0B4F]">
+                    {getTimeBasedGreeting(currentUser.name.split(' ')[0])}
+                  </span>
+                </div>
+              )}
+
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#1A1A2E]/20 bg-[#1A1A2E]/5 backdrop-blur-sm px-4 py-2">
                 <Sparkles className="h-4 w-4 text-[#EE0B4F]" />
                 <span className="text-sm font-medium text-[#1A1A2E]/80">Your sales toolkit</span>
               </div>
