@@ -1,98 +1,61 @@
 'use client';
 
-import { useState, useEffect, useRef, use } from 'react';
+import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import {
-  ArrowLeft,
-  Save,
-  Upload,
-  X,
-  Plus,
-  Trash2,
-  Image as ImageIcon,
-  Music,
-  MessageSquareQuote,
-  User,
-  AlertCircle,
-  Check,
-} from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, X, Save, Music, Image, MessageSquareQuote, Heart } from 'lucide-react';
 import { getCurrentUser } from '../../../utils/auth';
 import { supabase } from '../../../utils/supabase';
 import {
+  getUserPreferences,
+  saveUserPreferences,
   UserPreferences,
   UserQuote,
   UserInterests,
-  getUserPreferences,
-  saveUserPreferences,
   QUOTE_MIN_COUNT,
   QUOTE_MAX_COUNT,
   QUOTE_MAX_LENGTH,
   HERO_IMAGE_MIN_COUNT,
   HERO_IMAGE_MAX_COUNT,
-  validateQuotes,
-  validateHeroImages,
 } from '../../../utils/userPreferences';
-import {
-  compressProfilePhoto,
-  compressHeroImage,
-  formatFileSize,
-  validateImageType,
-  createImagePreview,
-  blobToBase64,
-} from '../../../utils/imageCompression';
-import { Quote } from '../../../data/loadingQuotes';
 
 interface UserRecord {
   id: string;
   email: string;
   name: string;
   role: 'ae' | 'admin';
-  photo_url: string | null;
 }
 
-export default function EditUserPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id: userId } = use(params);
+export default function UserPersonalisationPage({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = use(params);
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [user, setUser] = useState<UserRecord | null>(null);
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
-  const [activeTab, setActiveTab] = useState<'profile' | 'hero' | 'quotes' | 'walkon' | 'interests'>('profile');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   // Form state
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoUrl, setPhotoUrl] = useState('');
   const [heroImages, setHeroImages] = useState<string[]>([]);
-  const [heroImagePreviews, setHeroImagePreviews] = useState<string[]>([]);
+  const [newHeroImage, setNewHeroImage] = useState('');
   const [quotes, setQuotes] = useState<UserQuote[]>([]);
-  const [walkonUrl, setWalkonUrl] = useState('');
-  const [walkonLabel, setWalkonLabel] = useState('Get fired up');
-  const [interests, setInterests] = useState<UserInterests>({
-    sports_teams: [],
-    music_artists: [],
-    tv_shows: [],
-  });
-
-  // New quote form
   const [newQuoteContent, setNewQuoteContent] = useState('');
   const [newQuoteAttribution, setNewQuoteAttribution] = useState('');
+  const [walkonSongUrl, setWalkonSongUrl] = useState('');
+  const [walkonButtonLabel, setWalkonButtonLabel] = useState('Get fired up');
+  const [sportsTeams, setSportsTeams] = useState<string[]>([]);
+  const [musicArtists, setMusicArtists] = useState<string[]>([]);
+  const [tvShows, setTvShows] = useState<string[]>([]);
+  const [newSportsTeam, setNewSportsTeam] = useState('');
+  const [newMusicArtist, setNewMusicArtist] = useState('');
+  const [newTvShow, setNewTvShow] = useState('');
 
-  // Upload states
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [uploadingHero, setUploadingHero] = useState(false);
-  const [compressionInfo, setCompressionInfo] = useState<string | null>(null);
-
-  // Validation
-  const [errors, setErrors] = useState<string[]>([]);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-
-  // File input refs
-  const photoInputRef = useRef<HTMLInputElement>(null);
-  const heroInputRef = useRef<HTMLInputElement>(null);
-
-  // Team images from public folder (for selection)
-  const [teamImages, setTeamImages] = useState<string[]>([]);
+  // Edit quote modal state
+  const [editingQuoteIndex, setEditingQuoteIndex] = useState<number | null>(null);
+  const [editQuoteContent, setEditQuoteContent] = useState('');
+  const [editQuoteAttribution, setEditQuoteAttribution] = useState('');
 
   // Check admin access and load data
   useEffect(() => {
@@ -109,11 +72,11 @@ export default function EditUserPage({ params }: { params: Promise<{ id: string 
     async function loadData() {
       setLoading(true);
 
-      // Load user
+      // Load user details
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('id, email, name, role, photo_url')
-        .eq('id', userId)
+        .select('id, email, name, role')
+        .eq('id', resolvedParams.id)
         .single();
 
       if (userError || !userData) {
@@ -124,246 +87,170 @@ export default function EditUserPage({ params }: { params: Promise<{ id: string 
 
       setUser(userData);
 
-      // Load preferences
-      const prefs = await getUserPreferences(userId);
+      // Load user preferences
+      const prefs = await getUserPreferences(resolvedParams.id);
       setPreferences(prefs);
 
-      // Set form state from preferences
+      // Initialize form state from preferences
       if (prefs) {
-        setPhotoUrl(prefs.photo_url);
-        setPhotoPreview(prefs.photo_url);
+        setPhotoUrl(prefs.photo_url || '');
         setHeroImages(prefs.hero_images || []);
-        setHeroImagePreviews(prefs.hero_images || []);
         setQuotes(prefs.quotes || []);
-        setWalkonUrl(prefs.walkon_song_url || '');
-        setWalkonLabel(prefs.walkon_button_label || 'Get fired up');
-        setInterests(prefs.interests || { sports_teams: [], music_artists: [], tv_shows: [] });
-      } else {
-        // Use user's photo from users table as default
-        setPhotoUrl(userData.photo_url);
-        setPhotoPreview(userData.photo_url);
+        setWalkonSongUrl(prefs.walkon_song_url || '');
+        setWalkonButtonLabel(prefs.walkon_button_label || 'Get fired up');
+        if (prefs.interests) {
+          setSportsTeams(prefs.interests.sports_teams || []);
+          setMusicArtists(prefs.interests.music_artists || []);
+          setTvShows(prefs.interests.tv_shows || []);
+        }
       }
-
-      // Load team images
-      // These are hardcoded for now, could be made dynamic
-      setTeamImages([
-        '/team-images/Bernadette Coutis.png',
-        '/team-images/Billy Seller.png',
-        '/team-images/Kylie O\'Brien.2.png',
-        '/team-images/Nikki Atzori.png',
-      ]);
 
       setLoading(false);
     }
 
     loadData();
-  }, [userId, router]);
+  }, [resolvedParams.id, router]);
 
-  // Handle profile photo upload
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const typeValidation = validateImageType(file);
-    if (!typeValidation.valid) {
-      setErrors([typeValidation.error || 'Invalid file type']);
+  const handleAddHeroImage = () => {
+    if (!newHeroImage.trim()) return;
+    if (heroImages.length >= HERO_IMAGE_MAX_COUNT) {
+      setError(`Maximum ${HERO_IMAGE_MAX_COUNT} hero images allowed`);
       return;
     }
-
-    setUploadingPhoto(true);
-    setErrors([]);
-
-    try {
-      // Create preview immediately
-      const preview = await createImagePreview(file);
-      setPhotoPreview(preview);
-
-      // Compress image
-      const result = await compressProfilePhoto(file);
-
-      // Show compression info
-      if (result.wasCompressed) {
-        setCompressionInfo(
-          `Compressed from ${formatFileSize(result.originalSize)} to ${formatFileSize(result.compressedSize)} (${result.width}x${result.height})`
-        );
-      }
-
-      // Convert to base64 for storage
-      const base64 = await blobToBase64(result.blob);
-      const dataUrl = `data:image/jpeg;base64,${base64}`;
-      setPhotoUrl(dataUrl);
-      setPhotoPreview(dataUrl);
-
-      setTimeout(() => setCompressionInfo(null), 3000);
-    } catch (err) {
-      console.error('Error uploading photo:', err);
-      setErrors(['Failed to process image']);
-    } finally {
-      setUploadingPhoto(false);
-    }
+    setHeroImages([...heroImages, newHeroImage.trim()]);
+    setNewHeroImage('');
+    setError('');
   };
 
-  // Handle hero image upload
-  const handleHeroUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    if (heroImages.length + files.length > HERO_IMAGE_MAX_COUNT) {
-      setErrors([`Maximum ${HERO_IMAGE_MAX_COUNT} hero images allowed`]);
-      return;
-    }
-
-    setUploadingHero(true);
-    setErrors([]);
-
-    try {
-      const newImages: string[] = [];
-      const newPreviews: string[] = [];
-
-      for (const file of Array.from(files)) {
-        const typeValidation = validateImageType(file);
-        if (!typeValidation.valid) {
-          continue;
-        }
-
-        // Compress image
-        const result = await compressHeroImage(file);
-        const base64 = await blobToBase64(result.blob);
-        const dataUrl = `data:image/jpeg;base64,${base64}`;
-
-        newImages.push(dataUrl);
-        newPreviews.push(dataUrl);
-      }
-
-      setHeroImages([...heroImages, ...newImages]);
-      setHeroImagePreviews([...heroImagePreviews, ...newPreviews]);
-    } catch (err) {
-      console.error('Error uploading hero images:', err);
-      setErrors(['Failed to process images']);
-    } finally {
-      setUploadingHero(false);
-    }
-  };
-
-  // Remove hero image
-  const removeHeroImage = (index: number) => {
+  const handleRemoveHeroImage = (index: number) => {
     setHeroImages(heroImages.filter((_, i) => i !== index));
-    setHeroImagePreviews(heroImagePreviews.filter((_, i) => i !== index));
   };
 
-  // Add quote
-  const addQuote = () => {
-    if (!newQuoteContent.trim()) {
-      setErrors(['Quote content is required']);
-      return;
-    }
-
+  const handleAddQuote = () => {
+    if (!newQuoteContent.trim()) return;
     if (newQuoteContent.length > QUOTE_MAX_LENGTH) {
-      setErrors([`Quote must be ${QUOTE_MAX_LENGTH} characters or less`]);
+      setError(`Quote exceeds ${QUOTE_MAX_LENGTH} character limit`);
       return;
     }
-
     if (quotes.length >= QUOTE_MAX_COUNT) {
-      setErrors([`Maximum ${QUOTE_MAX_COUNT} quotes allowed`]);
+      setError(`Maximum ${QUOTE_MAX_COUNT} quotes allowed`);
       return;
     }
-
     const newQuote: UserQuote = {
       content: newQuoteContent.trim(),
-      attribution: newQuoteAttribution.trim() || undefined,
+      ...(newQuoteAttribution.trim() && { attribution: newQuoteAttribution.trim() }),
     };
-
     setQuotes([...quotes, newQuote]);
     setNewQuoteContent('');
     setNewQuoteAttribution('');
-    setErrors([]);
+    setError('');
   };
 
-  // Remove quote
-  const removeQuote = (index: number) => {
+  const handleRemoveQuote = (index: number) => {
     setQuotes(quotes.filter((_, i) => i !== index));
   };
 
-  // Update quote
-  const updateQuote = (index: number, field: 'content' | 'attribution', value: string) => {
-    const updated = [...quotes];
-    if (field === 'attribution') {
-      updated[index] = { ...updated[index], attribution: value || undefined };
-    } else {
-      updated[index] = { ...updated[index], [field]: value };
+  const handleEditQuote = (index: number) => {
+    setEditingQuoteIndex(index);
+    setEditQuoteContent(quotes[index].content);
+    setEditQuoteAttribution(quotes[index].attribution || '');
+  };
+
+  const handleSaveEditQuote = () => {
+    if (editingQuoteIndex === null) return;
+    if (!editQuoteContent.trim()) return;
+    if (editQuoteContent.length > QUOTE_MAX_LENGTH) {
+      setError(`Quote exceeds ${QUOTE_MAX_LENGTH} character limit`);
+      return;
     }
-    setQuotes(updated);
+    const updatedQuotes = [...quotes];
+    updatedQuotes[editingQuoteIndex] = {
+      content: editQuoteContent.trim(),
+      ...(editQuoteAttribution.trim() && { attribution: editQuoteAttribution.trim() }),
+    };
+    setQuotes(updatedQuotes);
+    setEditingQuoteIndex(null);
+    setEditQuoteContent('');
+    setEditQuoteAttribution('');
+    setError('');
   };
 
-  // Select team image as profile photo
-  const selectTeamImage = (url: string) => {
-    setPhotoUrl(url);
-    setPhotoPreview(url);
+  const handleAddInterest = (type: 'sports' | 'music' | 'tv') => {
+    if (type === 'sports' && newSportsTeam.trim()) {
+      setSportsTeams([...sportsTeams, newSportsTeam.trim()]);
+      setNewSportsTeam('');
+    } else if (type === 'music' && newMusicArtist.trim()) {
+      setMusicArtists([...musicArtists, newMusicArtist.trim()]);
+      setNewMusicArtist('');
+    } else if (type === 'tv' && newTvShow.trim()) {
+      setTvShows([...tvShows, newTvShow.trim()]);
+      setNewTvShow('');
+    }
   };
 
-  // Save preferences
+  const handleRemoveInterest = (type: 'sports' | 'music' | 'tv', index: number) => {
+    if (type === 'sports') {
+      setSportsTeams(sportsTeams.filter((_, i) => i !== index));
+    } else if (type === 'music') {
+      setMusicArtists(musicArtists.filter((_, i) => i !== index));
+    } else if (type === 'tv') {
+      setTvShows(tvShows.filter((_, i) => i !== index));
+    }
+  };
+
   const handleSave = async () => {
-    setErrors([]);
-    setSuccessMessage(null);
+    if (!user) return;
+    setError('');
+    setSuccess('');
+    setSaving(true);
 
-    // Validate
-    const quoteValidation = validateQuotes(quotes);
-    const heroValidation = validateHeroImages(heroImages);
-
-    const allErrors: string[] = [];
-
-    // Only validate quotes if user has started adding them
-    if (quotes.length > 0 && !quoteValidation.valid) {
-      allErrors.push(...quoteValidation.errors);
-    }
-
-    // Only validate hero images if user has started adding them
-    if (heroImages.length > 0 && !heroValidation.valid) {
-      allErrors.push(...heroValidation.errors);
-    }
-
-    // Validate walk-on URL if provided
-    if (walkonUrl && !walkonUrl.includes('youtube.com') && !walkonUrl.includes('youtu.be')) {
-      allErrors.push('Walk-on song must be a YouTube URL');
-    }
-
-    if (allErrors.length > 0) {
-      setErrors(allErrors);
+    // Validation
+    if (heroImages.length > 0 && heroImages.length < HERO_IMAGE_MIN_COUNT) {
+      setError(`Minimum ${HERO_IMAGE_MIN_COUNT} hero images required if any are set`);
+      setSaving(false);
       return;
     }
 
-    setSaving(true);
-
-    try {
-      const result = await saveUserPreferences(userId, {
-        photo_url: photoUrl,
-        hero_images: heroImages,
-        quotes,
-        walkon_song_url: walkonUrl || null,
-        walkon_button_label: walkonLabel || 'Get fired up',
-        interests,
-      });
-
-      if (result.success) {
-        setSuccessMessage('Preferences saved successfully');
-        setTimeout(() => setSuccessMessage(null), 3000);
-      } else {
-        setErrors([result.error || 'Failed to save preferences']);
-      }
-    } catch (err) {
-      console.error('Error saving preferences:', err);
-      setErrors(['Failed to save preferences']);
-    } finally {
+    if (quotes.length > 0 && quotes.length < QUOTE_MIN_COUNT) {
+      setError(`Minimum ${QUOTE_MIN_COUNT} quotes required if any are set`);
       setSaving(false);
+      return;
     }
+
+    const interests: UserInterests = {};
+    if (sportsTeams.length > 0) interests.sports_teams = sportsTeams;
+    if (musicArtists.length > 0) interests.music_artists = musicArtists;
+    if (tvShows.length > 0) interests.tv_shows = tvShows;
+
+    const result = await saveUserPreferences(user.id, {
+      photo_url: photoUrl || null,
+      hero_images: heroImages,
+      quotes: quotes,
+      walkon_song_url: walkonSongUrl || null,
+      walkon_button_label: walkonButtonLabel || 'Get fired up',
+      interests: Object.keys(interests).length > 0 ? interests : null,
+    });
+
+    if (result.success) {
+      setSuccess('Preferences saved successfully!');
+      setTimeout(() => setSuccess(''), 3000);
+    } else {
+      setError(result.error || 'Failed to save preferences');
+    }
+    setSaving(false);
   };
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1A1A2E] to-[#2D2D3A]">
-        <div className="relative">
-          <div className="h-12 w-12 rounded-full border-4 border-white/20" />
-          <div className="absolute inset-0 h-12 w-12 animate-spin rounded-full border-4 border-transparent border-t-[#EE0B4F]" />
+        <div className="text-center">
+          <div className="mb-4">
+            <div className="relative">
+              <div className="h-12 w-12 rounded-full border-4 border-white/20" />
+              <div className="absolute inset-0 h-12 w-12 animate-spin rounded-full border-4 border-transparent border-t-[#EE0B4F]" />
+            </div>
+          </div>
+          <p className="text-white/60 text-sm">Loading user preferences...</p>
         </div>
       </div>
     );
@@ -377,7 +264,7 @@ export default function EditUserPage({ params }: { params: Promise<{ id: string 
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-[#1A1A2E] py-6">
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
+        <div className="mx-auto max-w-4xl px-6 lg:px-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Link
@@ -396,348 +283,442 @@ export default function EditUserPage({ params }: { params: Promise<{ id: string 
 
       {/* Content */}
       <main className="mx-auto max-w-4xl px-6 py-8 lg:px-8">
-        {/* Title */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Edit User Personalisation</h1>
-            <p className="text-gray-500">{user.name} ({user.email})</p>
-          </div>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="flex items-center gap-2 bg-[#EE0B4F] hover:bg-[#c4093f] disabled:opacity-50 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
-          >
-            <Save className="h-5 w-5" />
-            {saving ? 'Saving...' : 'Save Changes'}
-          </button>
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Personalisation</h1>
+          <p className="mt-2 text-gray-600">
+            Configure preferences for <strong>{user.name}</strong> ({user.email})
+          </p>
         </div>
 
-        {/* Messages */}
-        {errors.length > 0 && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
-              <div>
-                {errors.map((error, i) => (
-                  <p key={i} className="text-sm text-red-600">{error}</p>
-                ))}
+        {/* Success/Error messages */}
+        {success && (
+          <div className="mb-6 bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg">
+            {success}
+          </div>
+        )}
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
+            {error}
+          </div>
+        )}
+
+        <div className="space-y-8">
+          {/* Profile Photo Section */}
+          <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-10 w-10 bg-[#EE0B4F]/10 rounded-lg flex items-center justify-center">
+                <Image className="h-5 w-5 text-[#EE0B4F]" />
+              </div>
+              <h2 className="text-xl font-semibold text-gray-900">Profile Photo</h2>
+            </div>
+            <div className="flex items-start gap-4">
+              {photoUrl && (
+                <div className="flex-shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={photoUrl}
+                    alt="Preview"
+                    className="h-20 w-20 rounded-full object-cover border-2 border-gray-200"
+                  />
+                </div>
+              )}
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Photo URL
+                </label>
+                <input
+                  type="text"
+                  value={photoUrl}
+                  onChange={(e) => setPhotoUrl(e.target.value)}
+                  placeholder="/team-images/user-photo.png"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE0B4F] focus:border-[#EE0B4F]"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Use a path like /team-images/name.png or a full URL
+                </p>
               </div>
             </div>
-          </div>
-        )}
+          </section>
 
-        {successMessage && (
-          <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
-            <div className="flex items-center gap-3">
-              <Check className="h-5 w-5 text-green-500" />
-              <p className="text-sm text-green-600">{successMessage}</p>
+          {/* Hero Images Section */}
+          <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-10 w-10 bg-[#EE0B4F]/10 rounded-lg flex items-center justify-center">
+                <Image className="h-5 w-5 text-[#EE0B4F]" />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">Hero Images</h2>
+                <p className="text-sm text-gray-500">
+                  {HERO_IMAGE_MIN_COUNT}-{HERO_IMAGE_MAX_COUNT} images, rotated weekly
+                </p>
+              </div>
             </div>
-          </div>
-        )}
 
-        {compressionInfo && (
-          <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-sm text-blue-600">{compressionInfo}</p>
-          </div>
-        )}
-
-        {/* Tabs */}
-        <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-lg">
-          {[
-            { id: 'profile', label: 'Profile', icon: User },
-            { id: 'hero', label: 'Hero Images', icon: ImageIcon },
-            { id: 'quotes', label: 'Quotes', icon: MessageSquareQuote },
-            { id: 'walkon', label: 'Walk-on Song', icon: Music },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as typeof activeTab)}
-              className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                activeTab === tab.id
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <tab.icon className="h-4 w-4" />
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Tab Content */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          {/* Profile Tab */}
-          {activeTab === 'profile' && (
-            <div className="space-y-6">
-              <h2 className="text-lg font-semibold text-gray-900">Profile Photo</h2>
-
-              {/* Current photo */}
-              <div className="flex items-center gap-6">
-                <div className="relative">
-                  {photoPreview ? (
-                    // eslint-disable-next-line @next/next/no-img-element
+            {/* Current images */}
+            {heroImages.length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-4">
+                {heroImages.map((url, index) => (
+                  <div key={index} className="relative group">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={photoPreview}
-                      alt={user.name}
-                      className="w-24 h-24 rounded-full object-cover border-4 border-gray-200"
+                      src={url}
+                      alt={`Hero ${index + 1}`}
+                      className="w-full h-24 object-cover rounded-lg border border-gray-200"
                     />
-                  ) : (
-                    <div className="w-24 h-24 rounded-full bg-[#EE0B4F] flex items-center justify-center text-white text-2xl font-bold">
-                      {user.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                    </div>
-                  )}
-                  {uploadingPhoto && (
-                    <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
-                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <input
-                    ref={photoInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handlePhotoUpload}
-                    className="hidden"
-                  />
-                  <button
-                    onClick={() => photoInputRef.current?.click()}
-                    disabled={uploadingPhoto}
-                    className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-                  >
-                    <Upload className="h-4 w-4" />
-                    Upload New Photo
-                  </button>
-                  <p className="text-xs text-gray-500">Max 200x200px, auto-compressed to &lt;100KB</p>
-                </div>
-              </div>
-
-              {/* Team images selection */}
-              <div>
-                <h3 className="text-sm font-medium text-gray-700 mb-3">Or select from team images:</h3>
-                <div className="flex flex-wrap gap-3">
-                  {teamImages.map((img) => (
                     <button
-                      key={img}
-                      onClick={() => selectTeamImage(img)}
-                      className={`relative rounded-full overflow-hidden border-4 transition-all ${
-                        photoUrl === img ? 'border-[#EE0B4F] scale-110' : 'border-gray-200 hover:border-gray-300'
-                      }`}
+                      onClick={() => handleRemoveHeroImage(index)}
+                      className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                     >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={img} alt="Team member" className="w-16 h-16 object-cover" />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Hero Images Tab */}
-          {activeTab === 'hero' && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900">Hero Images</h2>
-                  <p className="text-sm text-gray-500">
-                    {heroImages.length} of {HERO_IMAGE_MAX_COUNT} images (min {HERO_IMAGE_MIN_COUNT})
-                  </p>
-                </div>
-                <div>
-                  <input
-                    ref={heroInputRef}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handleHeroUpload}
-                    className="hidden"
-                  />
-                  <button
-                    onClick={() => heroInputRef.current?.click()}
-                    disabled={uploadingHero || heroImages.length >= HERO_IMAGE_MAX_COUNT}
-                    className="flex items-center gap-2 px-4 py-2 bg-[#EE0B4F] hover:bg-[#c4093f] disabled:opacity-50 text-white rounded-lg transition-colors"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add Images
-                  </button>
-                </div>
-              </div>
-
-              {uploadingHero && (
-                <div className="flex items-center justify-center py-8">
-                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-[#EE0B4F]" />
-                </div>
-              )}
-
-              {heroImages.length === 0 ? (
-                <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-lg">
-                  <ImageIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500">No hero images yet</p>
-                  <p className="text-sm text-gray-400">Add at least {HERO_IMAGE_MIN_COUNT} images to enable the rotating hero</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {heroImagePreviews.map((img, index) => (
-                    <div key={index} className="relative group aspect-video rounded-lg overflow-hidden">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={img} alt={`Hero ${index + 1}`} className="w-full h-full object-cover" />
-                      <button
-                        onClick={() => removeHeroImage(index)}
-                        className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                      <div className="absolute bottom-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
-                        Week {index + 1}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <p className="text-xs text-gray-500">
-                Images rotate weekly. Auto-resized to 800px width, compressed to &lt;500KB each.
-              </p>
-            </div>
-          )}
-
-          {/* Quotes Tab */}
-          {activeTab === 'quotes' && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900">Loading Quotes</h2>
-                  <p className="text-sm text-gray-500">
-                    {quotes.length} of {QUOTE_MAX_COUNT} quotes (min {QUOTE_MIN_COUNT})
-                  </p>
-                </div>
-              </div>
-
-              {/* Add new quote */}
-              <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                <h3 className="text-sm font-medium text-gray-700">Add New Quote</h3>
-                <div>
-                  <textarea
-                    value={newQuoteContent}
-                    onChange={(e) => setNewQuoteContent(e.target.value)}
-                    placeholder="Enter quote content..."
-                    rows={2}
-                    maxLength={QUOTE_MAX_LENGTH}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE0B4F] focus:border-[#EE0B4F] text-sm"
-                  />
-                  <p className="text-xs text-gray-400 mt-1">
-                    {newQuoteContent.length}/{QUOTE_MAX_LENGTH} characters
-                  </p>
-                </div>
-                <div className="flex gap-3">
-                  <input
-                    type="text"
-                    value={newQuoteAttribution}
-                    onChange={(e) => setNewQuoteAttribution(e.target.value)}
-                    placeholder="Attribution (optional, e.g., 'Usain Bolt')"
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE0B4F] focus:border-[#EE0B4F] text-sm"
-                  />
-                  <button
-                    onClick={addQuote}
-                    disabled={!newQuoteContent.trim() || quotes.length >= QUOTE_MAX_COUNT}
-                    className="px-4 py-2 bg-[#EE0B4F] hover:bg-[#c4093f] disabled:opacity-50 text-white rounded-lg transition-colors"
-                  >
-                    <Plus className="h-5 w-5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Existing quotes */}
-              {quotes.length === 0 ? (
-                <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-lg">
-                  <MessageSquareQuote className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500">No quotes yet</p>
-                  <p className="text-sm text-gray-400">Add at least {QUOTE_MIN_COUNT} quotes for loading screens</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {quotes.map((quote, index) => (
-                    <div key={index} className="flex gap-3 p-3 bg-gray-50 rounded-lg group">
-                      <div className="flex-1 space-y-2">
-                        <textarea
-                          value={quote.content}
-                          onChange={(e) => updateQuote(index, 'content', e.target.value)}
-                          rows={2}
-                          maxLength={QUOTE_MAX_LENGTH}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE0B4F] focus:border-[#EE0B4F] text-sm"
-                        />
-                        <input
-                          type="text"
-                          value={quote.attribution || ''}
-                          onChange={(e) => updateQuote(index, 'attribution', e.target.value)}
-                          placeholder="Attribution (optional)"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE0B4F] focus:border-[#EE0B4F] text-sm"
-                        />
-                      </div>
-                      <button
-                        onClick={() => removeQuote(index)}
-                        className="p-2 text-gray-400 hover:text-red-500 transition-colors"
-                      >
-                        <Trash2 className="h-5 w-5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Walk-on Song Tab */}
-          {activeTab === 'walkon' && (
-            <div className="space-y-6">
-              <h2 className="text-lg font-semibold text-gray-900">Walk-on Song</h2>
-              <p className="text-sm text-gray-500">
-                This song will play when the user clicks the &ldquo;Get fired up&rdquo; button
-              </p>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    YouTube URL
-                  </label>
-                  <input
-                    type="url"
-                    value={walkonUrl}
-                    onChange={(e) => setWalkonUrl(e.target.value)}
-                    placeholder="https://www.youtube.com/watch?v=..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE0B4F] focus:border-[#EE0B4F]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Button Label
-                  </label>
-                  <input
-                    type="text"
-                    value={walkonLabel}
-                    onChange={(e) => setWalkonLabel(e.target.value)}
-                    placeholder="Get fired up"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE0B4F] focus:border-[#EE0B4F]"
-                  />
-                </div>
-
-                {/* Preview */}
-                {walkonUrl && (
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <p className="text-sm font-medium text-gray-700 mb-2">Preview:</p>
-                    <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#EE0B4F]/20 border border-[#EE0B4F]/30">
-                      <span className="text-sm font-medium text-[#EE0B4F]">{walkonLabel || 'Get fired up'}</span>
-                      <span className="text-base">🔥</span>
+                      <X className="h-3 w-3" />
                     </button>
                   </div>
-                )}
+                ))}
+              </div>
+            )}
+
+            {/* Add new image */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newHeroImage}
+                onChange={(e) => setNewHeroImage(e.target.value)}
+                placeholder="/user-images/user/hero/image.png"
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE0B4F] focus:border-[#EE0B4F]"
+                onKeyDown={(e) => e.key === 'Enter' && handleAddHeroImage()}
+              />
+              <button
+                onClick={handleAddHeroImage}
+                disabled={heroImages.length >= HERO_IMAGE_MAX_COUNT}
+                className="px-4 py-2 bg-[#EE0B4F] hover:bg-[#c4093f] text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Plus className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-gray-500">
+              Currently {heroImages.length} of {HERO_IMAGE_MAX_COUNT} images
+            </p>
+          </section>
+
+          {/* Quotes Section */}
+          <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-10 w-10 bg-[#EE0B4F]/10 rounded-lg flex items-center justify-center">
+                <MessageSquareQuote className="h-5 w-5 text-[#EE0B4F]" />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">Motivational Quotes</h2>
+                <p className="text-sm text-gray-500">
+                  {QUOTE_MIN_COUNT}-{QUOTE_MAX_COUNT} quotes, max {QUOTE_MAX_LENGTH} chars each
+                </p>
               </div>
             </div>
-          )}
+
+            {/* Current quotes */}
+            {quotes.length > 0 && (
+              <div className="space-y-3 mb-4">
+                {quotes.map((quote, index) => (
+                  <div
+                    key={index}
+                    className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg group"
+                  >
+                    <div className="flex-1">
+                      <p className="text-gray-800 italic">&ldquo;{quote.content}&rdquo;</p>
+                      {quote.attribution && (
+                        <p className="text-sm text-gray-500 mt-1">— {quote.attribution}</p>
+                      )}
+                    </div>
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => handleEditQuote(index)}
+                        className="p-1 text-gray-500 hover:text-[#EE0B4F]"
+                      >
+                        <MessageSquareQuote className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleRemoveQuote(index)}
+                        className="p-1 text-gray-500 hover:text-red-500"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add new quote */}
+            <div className="space-y-2">
+              <textarea
+                value={newQuoteContent}
+                onChange={(e) => setNewQuoteContent(e.target.value)}
+                placeholder="Enter a motivational quote..."
+                rows={2}
+                maxLength={QUOTE_MAX_LENGTH}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE0B4F] focus:border-[#EE0B4F]"
+              />
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newQuoteAttribution}
+                  onChange={(e) => setNewQuoteAttribution(e.target.value)}
+                  placeholder="Attribution (optional)"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE0B4F] focus:border-[#EE0B4F]"
+                />
+                <button
+                  onClick={handleAddQuote}
+                  disabled={!newQuoteContent.trim() || quotes.length >= QUOTE_MAX_COUNT}
+                  className="px-4 py-2 bg-[#EE0B4F] hover:bg-[#c4093f] text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Plus className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+            <p className="mt-2 text-xs text-gray-500">
+              Currently {quotes.length} of {QUOTE_MAX_COUNT} quotes
+            </p>
+          </section>
+
+          {/* Walk-on Song Section */}
+          <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-10 w-10 bg-[#EE0B4F]/10 rounded-lg flex items-center justify-center">
+                <Music className="h-5 w-5 text-[#EE0B4F]" />
+              </div>
+              <h2 className="text-xl font-semibold text-gray-900">Walk-on Song</h2>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Song URL (YouTube, Spotify, etc.)
+                </label>
+                <input
+                  type="url"
+                  value={walkonSongUrl}
+                  onChange={(e) => setWalkonSongUrl(e.target.value)}
+                  placeholder="https://www.youtube.com/watch?v=..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE0B4F] focus:border-[#EE0B4F]"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Button Label
+                </label>
+                <input
+                  type="text"
+                  value={walkonButtonLabel}
+                  onChange={(e) => setWalkonButtonLabel(e.target.value)}
+                  placeholder="Get fired up"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE0B4F] focus:border-[#EE0B4F]"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Text shown on the button in the header
+                </p>
+              </div>
+            </div>
+          </section>
+
+          {/* Interests Section */}
+          <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-10 w-10 bg-[#EE0B4F]/10 rounded-lg flex items-center justify-center">
+                <Heart className="h-5 w-5 text-[#EE0B4F]" />
+              </div>
+              <h2 className="text-xl font-semibold text-gray-900">Interests</h2>
+            </div>
+
+            {/* Sports Teams */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Sports Teams
+              </label>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {sportsTeams.map((team, index) => (
+                  <span
+                    key={index}
+                    className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
+                  >
+                    {team}
+                    <button
+                      onClick={() => handleRemoveInterest('sports', index)}
+                      className="hover:text-red-600"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newSportsTeam}
+                  onChange={(e) => setNewSportsTeam(e.target.value)}
+                  placeholder="Add a sports team..."
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE0B4F] focus:border-[#EE0B4F]"
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddInterest('sports')}
+                />
+                <button
+                  onClick={() => handleAddInterest('sports')}
+                  className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg"
+                >
+                  <Plus className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Music Artists */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Music Artists
+              </label>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {musicArtists.map((artist, index) => (
+                  <span
+                    key={index}
+                    className="inline-flex items-center gap-1 px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm"
+                  >
+                    {artist}
+                    <button
+                      onClick={() => handleRemoveInterest('music', index)}
+                      className="hover:text-red-600"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newMusicArtist}
+                  onChange={(e) => setNewMusicArtist(e.target.value)}
+                  placeholder="Add a music artist..."
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE0B4F] focus:border-[#EE0B4F]"
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddInterest('music')}
+                />
+                <button
+                  onClick={() => handleAddInterest('music')}
+                  className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg"
+                >
+                  <Plus className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* TV Shows */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                TV Shows
+              </label>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {tvShows.map((show, index) => (
+                  <span
+                    key={index}
+                    className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm"
+                  >
+                    {show}
+                    <button
+                      onClick={() => handleRemoveInterest('tv', index)}
+                      className="hover:text-red-600"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newTvShow}
+                  onChange={(e) => setNewTvShow(e.target.value)}
+                  placeholder="Add a TV show..."
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE0B4F] focus:border-[#EE0B4F]"
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddInterest('tv')}
+                />
+                <button
+                  onClick={() => handleAddInterest('tv')}
+                  className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg"
+                >
+                  <Plus className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+          </section>
+
+          {/* Save Button */}
+          <div className="flex justify-end gap-4">
+            <Link
+              href="/admin/users"
+              className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </Link>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="flex items-center gap-2 px-6 py-3 bg-[#EE0B4F] hover:bg-[#c4093f] text-white font-semibold rounded-lg disabled:opacity-50"
+            >
+              <Save className="h-5 w-5" />
+              {saving ? 'Saving...' : 'Save Preferences'}
+            </button>
+          </div>
         </div>
       </main>
+
+      {/* Edit Quote Modal */}
+      {editingQuoteIndex !== null && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900">Edit Quote</h2>
+              <button
+                onClick={() => setEditingQuoteIndex(null)}
+                className="p-2 text-gray-500 hover:text-gray-700"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Quote Content
+                </label>
+                <textarea
+                  value={editQuoteContent}
+                  onChange={(e) => setEditQuoteContent(e.target.value)}
+                  rows={3}
+                  maxLength={QUOTE_MAX_LENGTH}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE0B4F] focus:border-[#EE0B4F]"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Attribution (optional)
+                </label>
+                <input
+                  type="text"
+                  value={editQuoteAttribution}
+                  onChange={(e) => setEditQuoteAttribution(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE0B4F] focus:border-[#EE0B4F]"
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setEditingQuoteIndex(null)}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveEditQuote}
+                  className="flex-1 px-4 py-2 bg-[#EE0B4F] hover:bg-[#c4093f] text-white rounded-lg"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

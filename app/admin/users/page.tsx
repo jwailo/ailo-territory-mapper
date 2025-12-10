@@ -6,8 +6,6 @@ import Link from 'next/link';
 import { ArrowLeft, Plus, Key, Trash2, X, Settings } from 'lucide-react';
 import { getCurrentUser, hashPassword } from '../../utils/auth';
 import { supabase } from '../../utils/supabase';
-import { Quote, getRandomQuote } from '../../data/loadingQuotes';
-import { getUserPreferences, getRandomUserQuote, UserPreferences } from '../../utils/userPreferences';
 
 interface UserRecord {
   id: string;
@@ -34,7 +32,6 @@ export default function AdminUsersPage() {
   const [resetPassword, setResetPassword] = useState('');
   const [formError, setFormError] = useState('');
   const [formLoading, setFormLoading] = useState(false);
-  const [loadingQuote, setLoadingQuote] = useState<Quote | null>(null);
 
   // Check admin access and load users
   useEffect(() => {
@@ -48,15 +45,9 @@ export default function AdminUsersPage() {
       return;
     }
 
-    // Load users and preferences after admin check passes
-    const userId = user.id;
+    // Load users after admin check passes
     async function loadData() {
       setLoading(true);
-
-      // Load user preferences for quotes
-      const prefs = await getUserPreferences(userId);
-      const quote = getRandomUserQuote(prefs) || getRandomQuote();
-      setLoadingQuote(quote);
 
       // Load users
       const { data, error } = await supabase
@@ -192,24 +183,7 @@ export default function AdminUsersPage() {
             <div className="absolute inset-0 h-12 w-12 animate-spin rounded-full border-4 border-transparent border-t-[#EE0B4F]" />
           </div>
         </div>
-        <p className="text-white/60 text-xs mb-6">Loading users...</p>
-        {/* Quote - only show if we have one */}
-        {loadingQuote && (
-          <div className="max-w-lg px-6 text-center">
-            <p className="text-lg italic text-white/80 leading-relaxed">
-              {loadingQuote.attribution ? (
-                <>
-                  &ldquo;{loadingQuote.content}&rdquo;
-                  <span className="mt-3 block text-sm text-white/60 not-italic">
-                    — {loadingQuote.attribution}
-                  </span>
-                </>
-              ) : (
-                <>&ldquo;{loadingQuote.content}&rdquo;</>
-              )}
-            </p>
-          </div>
-        )}
+        <p className="text-white/60 text-xs">Loading users...</p>
       </div>
     );
   }

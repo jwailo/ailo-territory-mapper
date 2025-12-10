@@ -40,8 +40,14 @@ const bernHeroImages = [
 // Bern's walk-on song - Tick Tick Boom by Sage the Gemini
 const WALKON_SONG_URL = 'https://www.youtube.com/watch?v=rlMq4JA-q2Q';
 
-// Bern's profile photo
-const PROFILE_PHOTO_URL = '/team-images/bernadette-coutis.png';
+// Helper to generate initials from name
+function getInitials(name: string): string {
+  const parts = name.split(' ').filter(Boolean);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  return (parts[0]?.[0] || '?').toUpperCase();
+}
 
 // Weekly rotation - pick image based on week number
 function getWeeklyHeroImage(): string {
@@ -394,8 +400,8 @@ export default function Home() {
   // Get hero image - use user's preferences if set, otherwise fall back to hardcoded Bern's images
   const heroImageUrl = getWeeklyHeroFromPrefs(userPrefs) || getWeeklyHeroImage();
 
-  // Get profile photo - use user's preferences if set, otherwise fall back to hardcoded
-  const profilePhotoUrl = getProfilePhotoFromPrefs(userPrefs) || PROFILE_PHOTO_URL;
+  // Get profile photo - use user's preferences if set, otherwise null (will show initials)
+  const profilePhotoUrl = getProfilePhotoFromPrefs(userPrefs);
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -420,13 +426,21 @@ export default function Home() {
                 {currentUser.role === 'admin' && (
                   <AdminDropdown />
                 )}
-                {/* Profile photo */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={profilePhotoUrl}
-                  alt={currentUser.name}
-                  className="h-9 w-9 rounded-full border-2 border-white/20 object-cover"
-                />
+                {/* Profile photo or initials */}
+                {profilePhotoUrl ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={profilePhotoUrl}
+                    alt={currentUser.name}
+                    className="h-9 w-9 rounded-full border-2 border-white/20 object-cover"
+                  />
+                ) : (
+                  <div className="h-9 w-9 rounded-full border-2 border-white/20 bg-[#EE0B4F] flex items-center justify-center">
+                    <span className="text-sm font-semibold text-white">
+                      {getInitials(currentUser.name)}
+                    </span>
+                  </div>
+                )}
                 {/* Logout button */}
                 <button
                   onClick={handleLogout}
