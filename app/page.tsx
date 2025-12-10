@@ -403,6 +403,12 @@ export default function Home() {
   // Get profile photo - use user's preferences if set, otherwise null (will show initials)
   const profilePhotoUrl = getProfilePhotoFromPrefs(userPrefs);
 
+  // DEBUG: Log auth and preferences state
+  console.log('DEBUG - currentUser:', currentUser);
+  console.log('DEBUG - userPrefs:', userPrefs);
+  console.log('DEBUG - profilePhotoUrl:', profilePhotoUrl);
+  console.log('DEBUG - prefsLoaded:', prefsLoaded);
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       <header className="relative z-10 bg-[#1A1A2E]">
