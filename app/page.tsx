@@ -1,4 +1,5 @@
 'use client';
+// Force rebuild - deployment test 2025-12-11
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
