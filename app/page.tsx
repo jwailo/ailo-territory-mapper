@@ -547,17 +547,12 @@ export default function Home() {
     setShowAdminModal(true);
   }, []);
 
-  const handleAdminAuthenticated = useCallback(async () => {
+  const handleAdminAuthenticated = useCallback(() => {
     setAdminAuthenticatedState(true);
     setAppMode('admin');
-
-    // Lazy load postcode boundaries when entering admin mode (for territory polygon rendering)
-    if (data && !data.boundaries.loaded) {
-      console.log('Admin mode activated - loading postcode boundaries...');
-      const boundaries = await loadPostcodeBoundaries();
-      setData(prev => prev ? { ...prev, boundaries } : prev);
-    }
-  }, [data]);
+    // NOTE: Boundary loading disabled - 37MB GeoJSON causes browser freeze
+    // Territory polygons will use convex hull fallback instead
+  }, []);
 
   const handleModeChange = useCallback((mode: AppMode) => {
     setAppMode(mode);
