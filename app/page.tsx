@@ -414,10 +414,10 @@ export default function Home() {
     <div className="min-h-screen flex flex-col bg-gray-50">
       <header className="relative z-10 bg-[#1A1A2E]">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6 lg:px-8 lg:py-8">
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/ASET-White.png" alt="ASET" className="h-10 w-auto lg:h-12" />
-            <span className="hidden sm:block text-xs text-white/60 tracking-wide border-l border-white/20 pl-4">Ailo Sales Enablement Tool</span>
+            <img src="/ASET-White.png" alt="ASET" className="h-10 w-auto lg:h-12 flex-shrink-0" />
+            <span className="text-[10px] text-white/50 tracking-wide mt-1">Ailo Sales Enablement Tool</span>
           </div>
           <div className="flex items-center gap-3">
             {currentUser && (
