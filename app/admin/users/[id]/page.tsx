@@ -337,14 +337,22 @@ export default function UserPersonalisationPage({ params }: { params: Promise<{ 
     setSuccess('');
     setSaving(true);
 
-    // Validation
+    // DEBUG: Log what we're about to save
+    console.log('DEBUG handleSave - heroImages:', heroImages);
+    console.log('DEBUG handleSave - quotes:', quotes);
+    console.log('DEBUG handleSave - photoUrl:', photoUrl);
+
+    // Validation - only enforce minimums if user has started adding items
+    // Allow saving even with fewer than minimum if user is just getting started
     if (heroImages.length > 0 && heroImages.length < HERO_IMAGE_MIN_COUNT) {
+      console.log('DEBUG - Hero images validation failed:', heroImages.length, '<', HERO_IMAGE_MIN_COUNT);
       setError(`Minimum ${HERO_IMAGE_MIN_COUNT} hero images required if any are set`);
       setSaving(false);
       return;
     }
 
     if (quotes.length > 0 && quotes.length < QUOTE_MIN_COUNT) {
+      console.log('DEBUG - Quotes validation failed:', quotes.length, '<', QUOTE_MIN_COUNT);
       setError(`Minimum ${QUOTE_MIN_COUNT} quotes required if any are set`);
       setSaving(false);
       return;
@@ -355,14 +363,18 @@ export default function UserPersonalisationPage({ params }: { params: Promise<{ 
     if (musicArtists.length > 0) interests.music_artists = musicArtists;
     if (tvShows.length > 0) interests.tv_shows = tvShows;
 
-    const result = await saveUserPreferences(user.id, {
+    const prefsToSave = {
       photo_url: photoUrl || null,
       hero_images: heroImages,
       quotes: quotes,
       walkon_song_url: walkonSongUrl || null,
       walkon_button_label: walkonButtonLabel || 'Get fired up',
       interests: Object.keys(interests).length > 0 ? interests : null,
-    });
+    };
+    console.log('DEBUG handleSave - prefsToSave:', prefsToSave);
+
+    const result = await saveUserPreferences(user.id, prefsToSave);
+    console.log('DEBUG handleSave - save result:', result);
 
     if (result.success) {
       setSuccess('Preferences saved successfully!');

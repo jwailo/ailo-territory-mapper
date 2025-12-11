@@ -58,23 +58,33 @@ let cacheUserId: string | null = null;
  */
 export async function getUserPreferences(userId?: string): Promise<UserPreferences | null> {
   const targetUserId = userId || getCurrentUser()?.id;
-  if (!targetUserId) return null;
+  console.log('DEBUG getUserPreferences - targetUserId:', targetUserId);
+
+  if (!targetUserId) {
+    console.log('DEBUG getUserPreferences - no targetUserId, returning null');
+    return null;
+  }
 
   // Return cached if same user and already loaded
   if (cachedPreferences && cacheUserId === targetUserId) {
+    console.log('DEBUG getUserPreferences - returning cached:', cachedPreferences);
     return cachedPreferences;
   }
 
   try {
+    console.log('DEBUG getUserPreferences - fetching from Supabase...');
     const { data, error } = await supabase
       .from('user_preferences')
       .select('*')
       .eq('user_id', targetUserId)
       .single();
 
+    console.log('DEBUG getUserPreferences - result:', { data, error });
+
     if (error) {
       if (error.code === 'PGRST116') {
         // No preferences exist yet - return null (will use defaults)
+        console.log('DEBUG getUserPreferences - no preferences exist yet');
         return null;
       }
       console.error('Error fetching user preferences:', error);
@@ -85,6 +95,7 @@ export async function getUserPreferences(userId?: string): Promise<UserPreferenc
     cachedPreferences = data as UserPreferences;
     cacheUserId = targetUserId;
 
+    console.log('DEBUG getUserPreferences - cached and returning:', cachedPreferences);
     return cachedPreferences;
   } catch (err) {
     console.error('Error fetching user preferences:', err);
@@ -99,23 +110,34 @@ export async function saveUserPreferences(
   userId: string,
   preferences: Partial<Omit<UserPreferences, 'id' | 'user_id' | 'created_at' | 'updated_at'>>
 ): Promise<{ success: boolean; error?: string }> {
+  console.log('DEBUG saveUserPreferences - userId:', userId);
+  console.log('DEBUG saveUserPreferences - preferences:', preferences);
+
   try {
     // Check if preferences already exist
-    const { data: existing } = await supabase
+    const { data: existing, error: checkError } = await supabase
       .from('user_preferences')
       .select('id')
       .eq('user_id', userId)
       .single();
 
+    console.log('DEBUG saveUserPreferences - existing record:', existing, 'checkError:', checkError);
+
     if (existing) {
       // Update existing
-      const { error } = await supabase
+      const updateData = {
+        ...preferences,
+        updated_at: new Date().toISOString(),
+      };
+      console.log('DEBUG saveUserPreferences - updating with:', updateData);
+
+      const { error, data } = await supabase
         .from('user_preferences')
-        .update({
-          ...preferences,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('user_id', userId);
+        .update(updateData)
+        .eq('user_id', userId)
+        .select();
+
+      console.log('DEBUG saveUserPreferences - update result:', { error, data });
 
       if (error) {
         console.error('Error updating preferences:', error);
@@ -123,13 +145,19 @@ export async function saveUserPreferences(
       }
     } else {
       // Create new
-      const { error } = await supabase
+      const insertData = {
+        user_id: userId,
+        ...DEFAULT_PREFERENCES,
+        ...preferences,
+      };
+      console.log('DEBUG saveUserPreferences - inserting:', insertData);
+
+      const { error, data } = await supabase
         .from('user_preferences')
-        .insert({
-          user_id: userId,
-          ...DEFAULT_PREFERENCES,
-          ...preferences,
-        });
+        .insert(insertData)
+        .select();
+
+      console.log('DEBUG saveUserPreferences - insert result:', { error, data });
 
       if (error) {
         console.error('Error creating preferences:', error);
