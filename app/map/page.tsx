@@ -61,7 +61,9 @@ import ModeToggle from '../components/ModeToggle';
 import SiteLoginScreen from '../components/SiteLoginScreen';
 import AdminPasswordModal from '../components/AdminPasswordModal';
 import LoadingOverlay from '../components/LoadingOverlay';
-import { getRandomQuote, Quote } from '../data/loadingQuotes';
+import { Quote } from '../data/loadingQuotes';
+import { getUserPreferences, getRandomUserQuote, UserQuote } from '../utils/userPreferences';
+import { getCurrentUser } from '../utils/auth';
 
 // Dynamic imports for components not needed on initial render (code splitting)
 const StatsPanel = dynamic(() => import('../components/StatsPanel'), { ssr: false });
@@ -133,8 +135,8 @@ export default function MapPage() {
   // Collapsible panel state
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
 
-  // Loading quote state
-  const [loadingQuote] = useState<Quote>(() => getRandomQuote());
+  // Loading quote state - fetched from user preferences after authentication
+  const [loadingQuote, setLoadingQuote] = useState<Quote | null>(null);
 
   // Check authentication on mount
   useEffect(() => {
@@ -148,6 +150,34 @@ export default function MapPage() {
     setAdminAuthenticatedState(isAdminAuthenticated());
     setAuthChecked(true);
   }, []);
+
+  // Fetch user's quotes from preferences after authentication
+  useEffect(() => {
+    const fetchUserQuotes = async () => {
+      if (!siteAuthenticated) return;
+
+      try {
+        const user = getCurrentUser();
+        if (!user?.id) return;
+
+        const preferences = await getUserPreferences(user.id);
+        if (preferences?.quotes && preferences.quotes.length > 0) {
+          // Get a random quote from user's preferences
+          const userQuote = getRandomUserQuote(preferences);
+          if (userQuote) {
+            setLoadingQuote({
+              content: userQuote.content,
+              attribution: userQuote.attribution,
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching user quotes:', err);
+      }
+    };
+
+    fetchUserQuotes();
+  }, [siteAuthenticated]);
 
   // Company state
   const [companyData, setCompanyData] = useState<CompanyStore | null>(null);
@@ -660,21 +690,23 @@ export default function MapPage() {
           </div>
         </div>
         <p className="text-white/60 text-xs mb-6">{loadingStatus}</p>
-        {/* Quote */}
-        <div className="max-w-lg px-6 text-center">
-          <p className="text-lg italic text-white/80 leading-relaxed">
-            {loadingQuote.attribution ? (
-              <>
-                &ldquo;{loadingQuote.content}&rdquo;
-                <span className="mt-3 block text-sm text-white/60 not-italic">
-                  — {loadingQuote.attribution}
-                </span>
-              </>
-            ) : (
-              <>&ldquo;{loadingQuote.content}&rdquo;</>
-            )}
-          </p>
-        </div>
+        {/* Quote - only shown if user has quotes in their preferences */}
+        {loadingQuote && (
+          <div className="max-w-lg px-6 text-center">
+            <p className="text-lg italic text-white/80 leading-relaxed">
+              {loadingQuote.attribution ? (
+                <>
+                  &ldquo;{loadingQuote.content}&rdquo;
+                  <span className="mt-3 block text-sm text-white/60 not-italic">
+                    — {loadingQuote.attribution}
+                  </span>
+                </>
+              ) : (
+                <>&ldquo;{loadingQuote.content}&rdquo;</>
+              )}
+            </p>
+          </div>
+        )}
       </div>
     );
   }
