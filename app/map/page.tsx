@@ -724,6 +724,9 @@ export default function MapPage() {
   }
 
   if (loading) {
+    // DEBUG: Log what loadingQuote is at render time
+    console.log('DEBUG map/page.tsx - RENDER loading screen, loadingQuote:', loadingQuote);
+
     return (
       <div className="h-screen w-screen flex flex-col items-center justify-center bg-gradient-to-br from-[#1A1A2E] to-[#2D2D3A]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
