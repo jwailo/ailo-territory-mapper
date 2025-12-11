@@ -141,38 +141,89 @@ export default function MapPage() {
   // Check authentication on mount
   useEffect(() => {
     // First check for auth token in URL (cross-app authentication)
-    if (checkUrlAuthToken()) {
+    const urlAuth = checkUrlAuthToken();
+    const sessionAuth = isSiteAuthenticated();
+    const isAuth = urlAuth || sessionAuth;
+
+    console.log('DEBUG map/page.tsx - Auth check:', { urlAuth, sessionAuth, isAuth });
+
+    if (urlAuth) {
       setSiteAuthenticated(true);
     } else {
-      // Fall back to session storage check
-      setSiteAuthenticated(isSiteAuthenticated());
+      setSiteAuthenticated(sessionAuth);
     }
     setAdminAuthenticatedState(isAdminAuthenticated());
     setAuthChecked(true);
+
+    // Fetch quote immediately if authenticated (don't wait for state update)
+    if (isAuth) {
+      const user = getCurrentUser();
+      console.log('DEBUG map/page.tsx - User from getCurrentUser():', user);
+
+      if (user?.id) {
+        getUserPreferences(user.id).then(preferences => {
+          console.log('DEBUG map/page.tsx - User preferences:', preferences);
+          console.log('DEBUG map/page.tsx - User quotes:', preferences?.quotes);
+
+          if (preferences?.quotes && preferences.quotes.length > 0) {
+            const userQuote = getRandomUserQuote(preferences);
+            console.log('DEBUG map/page.tsx - Selected quote:', userQuote);
+
+            if (userQuote) {
+              setLoadingQuote({
+                content: userQuote.content,
+                attribution: userQuote.attribution,
+              });
+            }
+          } else {
+            console.log('DEBUG map/page.tsx - No quotes configured for user');
+          }
+        }).catch(err => {
+          console.error('DEBUG map/page.tsx - Error fetching preferences:', err);
+        });
+      } else {
+        console.log('DEBUG map/page.tsx - No user ID available');
+      }
+    }
   }, []);
 
-  // Fetch user's quotes from preferences after authentication
+  // Also fetch quotes when siteAuthenticated changes (backup for delayed auth)
   useEffect(() => {
-    const fetchUserQuotes = async () => {
-      if (!siteAuthenticated) return;
+    if (!siteAuthenticated) {
+      console.log('DEBUG map/page.tsx - siteAuthenticated changed to false, skipping quote fetch');
+      return;
+    }
 
+    console.log('DEBUG map/page.tsx - siteAuthenticated changed to true, fetching quotes...');
+
+    const fetchUserQuotes = async () => {
       try {
         const user = getCurrentUser();
-        if (!user?.id) return;
+        console.log('DEBUG map/page.tsx - [effect] User:', user);
+
+        if (!user?.id) {
+          console.log('DEBUG map/page.tsx - [effect] No user ID');
+          return;
+        }
 
         const preferences = await getUserPreferences(user.id);
+        console.log('DEBUG map/page.tsx - [effect] Preferences:', preferences);
+
         if (preferences?.quotes && preferences.quotes.length > 0) {
-          // Get a random quote from user's preferences
           const userQuote = getRandomUserQuote(preferences);
+          console.log('DEBUG map/page.tsx - [effect] Selected quote:', userQuote);
+
           if (userQuote) {
             setLoadingQuote({
               content: userQuote.content,
               attribution: userQuote.attribution,
             });
           }
+        } else {
+          console.log('DEBUG map/page.tsx - [effect] No quotes in preferences');
         }
       } catch (err) {
-        console.error('Error fetching user quotes:', err);
+        console.error('DEBUG map/page.tsx - [effect] Error:', err);
       }
     };
 
