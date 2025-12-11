@@ -395,6 +395,7 @@ export default function Map({
       {/* Territory polygon layer - render filled polygons for each territory */}
       <TerritoryPolygonLayer
         postcodes={data.postcodes}
+        boundaries={data.boundaries}
         territories={territories}
         visible={!isViewMode}
       />

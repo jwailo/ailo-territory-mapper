@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
-import { loadPostcodes } from './utils/loadPostcodes';
+import { loadPostcodes, loadPostcodeBoundaries } from './utils/loadPostcodes';
 import { loadCompanies, calculateCompanyStats } from './utils/loadCompanies';
 import { calculateStats } from './utils/territoryAssignment';
 import {
@@ -547,10 +547,17 @@ export default function Home() {
     setShowAdminModal(true);
   }, []);
 
-  const handleAdminAuthenticated = useCallback(() => {
+  const handleAdminAuthenticated = useCallback(async () => {
     setAdminAuthenticatedState(true);
     setAppMode('admin');
-  }, []);
+
+    // Lazy load postcode boundaries when entering admin mode (for territory polygon rendering)
+    if (data && !data.boundaries.loaded) {
+      console.log('Admin mode activated - loading postcode boundaries...');
+      const boundaries = await loadPostcodeBoundaries();
+      setData(prev => prev ? { ...prev, boundaries } : prev);
+    }
+  }, [data]);
 
   const handleModeChange = useCallback((mode: AppMode) => {
     setAppMode(mode);
