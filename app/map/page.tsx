@@ -899,7 +899,7 @@ export default function MapPage() {
               {/* View Mode: Show filters panel and analysis panel */}
               {isViewMode && (companiesLoading ? (
                 <div className="lg:col-span-3 relative min-h-[150px] bg-white border border-gray-200 rounded-lg overflow-hidden">
-                  <LoadingOverlay isLoading={true} delay={0} />
+                  <LoadingOverlay isLoading={true} delay={0} quote={loadingQuote} showQuote={true} />
                 </div>
               ) : companyData && (
                 <>
