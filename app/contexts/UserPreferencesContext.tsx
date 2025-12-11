@@ -7,14 +7,14 @@ import {
   getUserPreferences,
   clearPreferencesCache,
 } from '../utils/userPreferences';
-import { Quote, getRandomQuoteFrom, defaultQuotes } from '../data/loadingQuotes';
+import { Quote, getRandomQuoteFrom } from '../data/loadingQuotes';
 
 interface UserPreferencesContextType {
   preferences: UserPreferences | null;
   loading: boolean;
   error: string | null;
   refreshPreferences: () => Promise<void>;
-  getQuote: () => Quote;
+  getQuote: () => Quote | null;
   getHeroImage: () => string | null;
   getProfilePhoto: () => string | null;
   getWalkonSong: () => { url: string | null; label: string };
@@ -64,14 +64,13 @@ export function UserPreferencesProvider({ children }: { children: React.ReactNod
     setPreferences(null);
   }, []);
 
-  // Get a random quote from user's preferences or fallback
-  const getQuote = useCallback((): Quote => {
+  // Get a random quote from user's preferences
+  // Returns null if user has no quotes configured - NO FALLBACK
+  const getQuote = useCallback((): Quote | null => {
     if (preferences?.quotes && preferences.quotes.length > 0) {
-      const quote = getRandomQuoteFrom(preferences.quotes);
-      if (quote) return quote;
+      return getRandomQuoteFrom(preferences.quotes);
     }
-    // Fallback to default quotes
-    return defaultQuotes[Math.floor(Math.random() * defaultQuotes.length)];
+    return null;
   }, [preferences]);
 
   // Get weekly hero image from user's preferences

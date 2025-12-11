@@ -25,21 +25,8 @@ import {
 } from './utils/userPreferences';
 import SiteLoginScreen from './components/SiteLoginScreen';
 
-// Bern's hero images - rotate weekly (changes every Monday)
-const bernHeroImages = [
-  '/user-images/bernadette/hero/tigers.2.png',
-  '/user-images/bernadette/hero/swans.2.png',
-  '/user-images/bernadette/hero/brady.2.png',
-  '/user-images/bernadette/hero/bolt.2.1.png',
-  '/user-images/bernadette/hero/bolt.2.3.png',
-  '/user-images/bernadette/hero/ACDC.2.png',
-  '/user-images/bernadette/hero/INXS.2.png',
-  '/user-images/bernadette/hero/suits.2.png',
-  '/user-images/bernadette/hero/Goodes.2.png',
-];
-
-// Bern's walk-on song - Tick Tick Boom by Sage the Gemini
-const WALKON_SONG_URL = 'https://www.youtube.com/watch?v=rlMq4JA-q2Q';
+// Default walk-on song label (used when user hasn't configured one)
+const DEFAULT_WALKON_LABEL = 'Get fired up';
 
 // Helper to generate initials from name
 function getInitials(name: string): string {
@@ -48,16 +35,6 @@ function getInitials(name: string): string {
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   }
   return (parts[0]?.[0] || '?').toUpperCase();
-}
-
-// Weekly rotation - pick image based on week number
-function getWeeklyHeroImage(): string {
-  const now = new Date();
-  const startOfYear = new Date(now.getFullYear(), 0, 1);
-  const weekNumber = Math.ceil(
-    ((now.getTime() - startOfYear.getTime()) / 86400000 + startOfYear.getDay() + 1) / 7
-  );
-  return bernHeroImages[weekNumber % bernHeroImages.length];
 }
 
 // Sales-focused time-based greetings
@@ -345,15 +322,18 @@ export default function Home() {
 
   
   // Handle walk-on song click - opens user's walk-on song in new tab
+  // Only works if user has configured a walk-on song in their preferences
   const handleWalkonSongClick = () => {
+    if (!userPrefs?.walkon_song_url) return; // No song configured
     trackButtonClick('aset_hub', 'walkon_song');
-    // Use user's walk-on song if set, otherwise fall back to default
-    const songUrl = userPrefs?.walkon_song_url || WALKON_SONG_URL;
-    window.open(songUrl, '_blank');
+    window.open(userPrefs.walkon_song_url, '_blank');
   };
 
   // Get current walk-on button label
-  const walkonButtonLabel = userPrefs?.walkon_button_label || 'Get fired up';
+  const walkonButtonLabel = userPrefs?.walkon_button_label || DEFAULT_WALKON_LABEL;
+
+  // Only show walk-on button if user has a song configured
+  const showWalkonButton = !!userPrefs?.walkon_song_url;
 
   // Handle logout
   const handleLogout = () => {
@@ -398,8 +378,8 @@ export default function Home() {
     return <SiteLoginScreen onAuthenticated={handleAuthenticated} />;
   }
 
-  // Get hero image - use user's preferences if set, otherwise fall back to hardcoded Bern's images
-  const heroImageUrl = getWeeklyHeroFromPrefs(userPrefs) || getWeeklyHeroImage();
+  // Get hero image - use user's preferences if set, otherwise show gradient placeholder
+  const heroImageUrl = getWeeklyHeroFromPrefs(userPrefs);
 
   // Get profile photo - use user's preferences if set, otherwise null (will show initials)
   const profilePhotoUrl = getProfilePhotoFromPrefs(userPrefs);
@@ -426,15 +406,17 @@ export default function Home() {
           <div className="flex items-center gap-3">
             {currentUser && (
               <>
-                {/* Walk-on song button */}
-                <button
-                  onClick={handleWalkonSongClick}
-                  className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#EE0B4F]/20 hover:bg-[#EE0B4F]/30 border border-[#EE0B4F]/30 transition-all group cursor-pointer"
-                  title="Play your walk-on song"
-                >
-                  <span className="text-sm font-medium text-white">{walkonButtonLabel}</span>
-                  <span className="text-base group-hover:animate-pulse">🔥</span>
-                </button>
+                {/* Walk-on song button - only shown if user has configured a song */}
+                {showWalkonButton && (
+                  <button
+                    onClick={handleWalkonSongClick}
+                    className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#EE0B4F]/20 hover:bg-[#EE0B4F]/30 border border-[#EE0B4F]/30 transition-all group cursor-pointer"
+                    title="Play your walk-on song"
+                  >
+                    <span className="text-sm font-medium text-white">{walkonButtonLabel}</span>
+                    <span className="text-base group-hover:animate-pulse">🔥</span>
+                  </button>
+                )}
                 {currentUser.role === 'admin' && (
                   <AdminDropdown />
                 )}

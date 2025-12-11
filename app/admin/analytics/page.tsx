@@ -26,7 +26,7 @@ import {
   EventRecord,
 } from '../../utils/analytics';
 import { ToolName } from '../../utils/supabase';
-import { Quote, getRandomQuote } from '../../data/loadingQuotes';
+import { Quote } from '../../data/loadingQuotes';
 import { getUserPreferences, getRandomUserQuote } from '../../utils/userPreferences';
 
 // Tool display names and colors
@@ -148,11 +148,11 @@ export default function AdminAnalyticsPage() {
       return;
     }
 
-    // Load user preferences for quotes
+    // Load user preferences for quotes - NO FALLBACK
     async function loadQuote() {
       if (!user) return;
       const prefs = await getUserPreferences(user.id);
-      const quote = getRandomUserQuote(prefs) || getRandomQuote();
+      const quote = getRandomUserQuote(prefs);
       setLoadingQuote(quote);
     }
     loadQuote();
