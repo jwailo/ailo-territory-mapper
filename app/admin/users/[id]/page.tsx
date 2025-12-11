@@ -118,34 +118,56 @@ export default function UserPersonalisationPage({ params }: { params: Promise<{ 
     loadData();
   }, [resolvedParams.id, router]);
 
-  // File upload handlers
+  // File upload handlers - upload directly to Supabase storage
   const handleProfileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
+
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      setError('Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed.');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      setError('File too large. Maximum size is 5MB.');
+      return;
+    }
 
     setUploadingProfile(true);
     setError('');
 
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('userId', user.id);
-      formData.append('type', 'profile');
+      // Generate unique filename
+      const extension = file.name.split('.').pop() || 'png';
+      const timestamp = Date.now();
+      const filename = `${user.id}/profile/${timestamp}.${extension}`;
 
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
+      // Upload directly to Supabase storage
+      const { error: uploadError } = await supabase.storage
+        .from('user-images')
+        .upload(filename, file, {
+          contentType: file.type,
+          upsert: false,
+        });
 
-      const result = await response.json();
-
-      if (result.success) {
-        setPhotoUrl(result.url);
-        setSuccess('Profile photo uploaded successfully!');
-        setTimeout(() => setSuccess(''), 3000);
-      } else {
-        setError(result.error || 'Failed to upload image');
+      if (uploadError) {
+        console.error('Supabase storage error:', uploadError);
+        setError('Failed to upload file: ' + uploadError.message);
+        return;
       }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('user-images')
+        .getPublicUrl(filename);
+
+      setPhotoUrl(urlData.publicUrl);
+      setSuccess('Profile photo uploaded successfully!');
+      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError('Failed to upload image');
       console.error('Upload error:', err);
@@ -166,29 +188,51 @@ export default function UserPersonalisationPage({ params }: { params: Promise<{ 
       return;
     }
 
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      setError('Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed.');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      setError('File too large. Maximum size is 5MB.');
+      return;
+    }
+
     setUploadingHero(true);
     setError('');
 
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('userId', user.id);
-      formData.append('type', 'hero');
+      // Generate unique filename
+      const extension = file.name.split('.').pop() || 'png';
+      const timestamp = Date.now();
+      const filename = `${user.id}/hero/${timestamp}.${extension}`;
 
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
+      // Upload directly to Supabase storage
+      const { error: uploadError } = await supabase.storage
+        .from('user-images')
+        .upload(filename, file, {
+          contentType: file.type,
+          upsert: false,
+        });
 
-      const result = await response.json();
-
-      if (result.success) {
-        setHeroImages([...heroImages, result.url]);
-        setSuccess('Hero image uploaded successfully!');
-        setTimeout(() => setSuccess(''), 3000);
-      } else {
-        setError(result.error || 'Failed to upload image');
+      if (uploadError) {
+        console.error('Supabase storage error:', uploadError);
+        setError('Failed to upload file: ' + uploadError.message);
+        return;
       }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('user-images')
+        .getPublicUrl(filename);
+
+      setHeroImages([...heroImages, urlData.publicUrl]);
+      setSuccess('Hero image uploaded successfully!');
+      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError('Failed to upload image');
       console.error('Upload error:', err);
@@ -441,7 +485,7 @@ export default function UserPersonalisationPage({ params }: { params: Promise<{ 
                       </>
                     )}
                   </label>
-                  <p className="mt-1 text-xs text-gray-500">JPEG, PNG, GIF, or WebP. Max 5MB.</p>
+                  <p className="mt-1 text-xs text-gray-500">Recommended: 200x200px, max 100KB. JPEG, PNG, GIF, or WebP.</p>
                 </div>
 
                 {/* URL Input */}
@@ -530,7 +574,7 @@ export default function UserPersonalisationPage({ params }: { params: Promise<{ 
                   </>
                 )}
               </label>
-              <p className="mt-1 text-xs text-gray-500">JPEG, PNG, GIF, or WebP. Max 5MB.</p>
+              <p className="mt-1 text-xs text-gray-500">Recommended: 800x450px (16:9 ratio), max 500KB. JPEG, PNG, GIF, or WebP.</p>
             </div>
 
             {/* Or add by URL */}
