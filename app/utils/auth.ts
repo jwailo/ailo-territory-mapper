@@ -228,3 +228,48 @@ export function checkUrlAuthToken(): boolean {
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 10);
 }
+
+// Change password for a user
+export async function changePassword(
+  userId: string,
+  currentPassword: string,
+  newPassword: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // First, fetch the user's current password hash
+    const { data: user, error: fetchError } = await supabase
+      .from('users')
+      .select('password_hash')
+      .eq('id', userId)
+      .single();
+
+    if (fetchError || !user) {
+      return { success: false, error: 'User not found' };
+    }
+
+    // Verify current password
+    const isValidPassword = await bcrypt.compare(currentPassword, user.password_hash);
+    if (!isValidPassword) {
+      return { success: false, error: 'Current password is incorrect' };
+    }
+
+    // Hash the new password
+    const newPasswordHash = await bcrypt.hash(newPassword, 10);
+
+    // Update the password in the database
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ password_hash: newPasswordHash })
+      .eq('id', userId);
+
+    if (updateError) {
+      console.error('Error updating password:', updateError);
+      return { success: false, error: 'Failed to update password' };
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error('Change password error:', err);
+    return { success: false, error: 'An error occurred while changing password' };
+  }
+}

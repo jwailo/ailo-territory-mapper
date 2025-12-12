@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { MapPin, FolderOpen, Calculator, ArrowRight, Settings, BarChart3, Users, ChevronDown, LogOut } from 'lucide-react';
+import { MapPin, FolderOpen, Calculator, ArrowRight, Settings, BarChart3, Users, ChevronDown, LogOut, KeyRound } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import {
   isSiteAuthenticated,
@@ -24,6 +24,7 @@ import {
   UserPreferences,
 } from './utils/userPreferences';
 import SiteLoginScreen from './components/SiteLoginScreen';
+import ChangePasswordModal from './components/ChangePasswordModal';
 
 // Default walk-on song label (used when user hasn't configured one)
 const DEFAULT_WALKON_LABEL = 'Get fired up';
@@ -283,6 +284,9 @@ export default function Home() {
   const [userPrefs, setUserPrefs] = useState<UserPreferences | null>(null);
   const [prefsLoaded, setPrefsLoaded] = useState(false);
 
+  // Change password modal state
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+
   const siteAuthenticated = authState.authenticated;
   const authChecked = authState.checked;
   const currentUser = authState.user;
@@ -391,8 +395,18 @@ export default function Home() {
   console.log('DEBUG - prefsLoaded:', prefsLoaded);
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
-      <header className="relative z-10 bg-[#1A1A2E]">
+    <>
+      {/* Change Password Modal */}
+      {currentUser && (
+        <ChangePasswordModal
+          isOpen={showChangePasswordModal}
+          userId={currentUser.id}
+          onClose={() => setShowChangePasswordModal(false)}
+        />
+      )}
+
+      <div className="min-h-screen flex flex-col bg-gray-50">
+        <header className="relative z-10 bg-[#1A1A2E]">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6 lg:px-8 lg:py-8">
           <div className="flex flex-col items-start">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -435,6 +449,14 @@ export default function Home() {
                     </span>
                   </div>
                 )}
+                {/* Change Password button */}
+                <button
+                  onClick={() => setShowChangePasswordModal(true)}
+                  className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+                  title="Change Password"
+                >
+                  <KeyRound className="h-5 w-5 text-white/70 hover:text-white" />
+                </button>
                 {/* Logout button */}
                 <button
                   onClick={handleLogout}
@@ -536,15 +558,16 @@ export default function Home() {
         </div>
       </section>
 
-      <footer className="bg-[#1A1A2E] py-8">
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/ASET-White.png" alt="ASET" className="h-6 w-auto opacity-70" />
-            <p className="text-sm text-white/50">© 2025 ASET. Built for the Ailo sales team.</p>
+        <footer className="bg-[#1A1A2E] py-8">
+          <div className="mx-auto max-w-7xl px-6 lg:px-8">
+            <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/ASET-White.png" alt="ASET" className="h-6 w-auto opacity-70" />
+              <p className="text-sm text-white/50">© 2025 ASET. Built for the Ailo sales team.</p>
+            </div>
           </div>
-        </div>
-      </footer>
-    </div>
+        </footer>
+      </div>
+    </>
   );
 }
