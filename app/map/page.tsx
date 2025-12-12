@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { loadPostcodes, loadPostcodeBoundaries } from '../utils/loadPostcodes';
 import { loadCompanies, calculateCompanyStats } from '../utils/loadCompanies';
 import { calculateStats } from '../utils/territoryAssignment';
@@ -139,8 +140,8 @@ export default function MapPage() {
     loadedState: null,
   });
 
-  // Collapsible panel state
-  const [filtersCollapsed, setFiltersCollapsed] = useState(false);
+  // Side panel collapse state
+  const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
 
   // Loading quote state - fetched from user preferences after authentication
   const [loadingQuote, setLoadingQuote] = useState<Quote | null>(null);
@@ -826,181 +827,142 @@ export default function MapPage() {
         onAuthenticated={handleAdminAuthenticated}
       />
 
-      <div className="flex-col-layout">
-        <header className="bg-[#1A1A2E] px-4 py-3 flex items-center justify-between flex-shrink-0">
-        {/* ASET Logo - White version on dark header, links back to dashboard */}
-        <Link href="/">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/ASET-White.png"
-            alt="ASET - Ailo Sales Enablement Tool"
-            style={{ height: '45px', width: 'auto', cursor: 'pointer' }}
-          />
-        </Link>
-        <div className="flex items-center gap-3">
-          {/* Back to Dashboard button */}
-          <Link
-            href="/"
-            className="px-4 py-2 rounded-lg text-sm font-medium bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-all duration-200 flex items-center gap-2"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-              />
-            </svg>
-            Dashboard
-          </Link>
-          {/* Case Study Database button */}
-          <button
-            onClick={handleCaseStudyClick}
-            className="px-4 py-2 rounded-lg text-sm font-medium bg-white/10 border border-white/20 text-white hover:bg-white/20 transition-all duration-200 flex items-center gap-2"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-              />
-            </svg>
-            Case Study Database
-          </button>
-          <ModeToggle
-            mode={appMode}
-            isAdminAuthenticated={adminAuthenticated}
-            onModeChange={handleModeChange}
-            onAdminClick={handleAdminModeClick}
-          />
-        </div>
-      </header>
-
-      {/* Collapsible Control Panel */}
-      <div className="bg-gray-50 border-b border-gray-200 flex-shrink-0">
-        {/* Toggle Header */}
-        <button
-          onClick={() => setFiltersCollapsed(!filtersCollapsed)}
-          className="w-full px-4 py-2 flex items-center justify-between bg-gradient-to-r from-[#EE0B4F] to-[#c4093f] text-white hover:brightness-110 transition-all"
-        >
-          <span className="font-semibold text-sm">
-            {isViewMode ? 'Filters & Controls' : 'Territory Controls'}
-          </span>
-          <div className="flex items-center gap-2">
-            <span className="text-xs opacity-80">
-              {filtersCollapsed ? 'Click to expand' : 'Click to collapse'}
-            </span>
-            <svg
-              className={`w-4 h-4 transition-transform duration-200 ${
-                filtersCollapsed ? '' : 'rotate-180'
-              }`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 9l-7 7-7-7"
-              />
-            </svg>
-          </div>
-        </button>
-
-        {/* Collapsible Content */}
-        <div
-          className={`transition-all duration-300 ease-in-out overflow-hidden ${
-            filtersCollapsed ? 'max-h-0' : 'max-h-[1000px]'
+      <div className="flex h-screen overflow-hidden">
+        {/* Left Side Panel */}
+        <aside
+          className={`flex-shrink-0 bg-white border-r border-gray-200 flex flex-col transition-all duration-300 ease-in-out ${
+            isPanelCollapsed ? 'w-12' : 'w-[380px]'
           }`}
         >
-          <div className="p-4 space-y-4">
-            {/* State selector is always visible */}
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-              <StateSelector selectedState={selectedState} onSelect={setSelectedState} />
+          {/* Panel Header */}
+          <div className="bg-[#1A1A2E] px-3 py-3 flex items-center justify-between flex-shrink-0">
+            {!isPanelCollapsed && (
+              <Link href="/">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/ASET-White.png"
+                  alt="ASET"
+                  style={{ height: '36px', width: 'auto', cursor: 'pointer' }}
+                />
+              </Link>
+            )}
+            <button
+              onClick={() => setIsPanelCollapsed(!isPanelCollapsed)}
+              className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
+              title={isPanelCollapsed ? 'Expand panel' : 'Collapse panel'}
+            >
+              {isPanelCollapsed ? (
+                <ChevronRight className="w-5 h-5" />
+              ) : (
+                <ChevronLeft className="w-5 h-5" />
+              )}
+            </button>
+          </div>
 
-              {/* View Mode: Show filters panel and analysis panel */}
-              {isViewMode && (companiesLoading ? (
-                <div className="lg:col-span-3 relative min-h-[150px] bg-white border border-gray-200 rounded-lg overflow-hidden">
-                  <LoadingOverlay isLoading={true} delay={0} quote={loadingQuote} showQuote={true} />
+          {/* Panel Content - scrollable */}
+          {!isPanelCollapsed && (
+            <div className="flex-1 overflow-y-auto">
+              {/* Mode Toggle & Navigation */}
+              <div className="p-3 border-b border-gray-200 space-y-2">
+                <ModeToggle
+                  mode={appMode}
+                  isAdminAuthenticated={adminAuthenticated}
+                  onModeChange={handleModeChange}
+                  onAdminClick={handleAdminModeClick}
+                />
+                <div className="flex gap-2">
+                  <Link
+                    href="/"
+                    className="flex-1 px-3 py-1.5 rounded text-xs font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors text-center"
+                  >
+                    Dashboard
+                  </Link>
+                  <button
+                    onClick={handleCaseStudyClick}
+                    className="flex-1 px-3 py-1.5 rounded text-xs font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors"
+                  >
+                    Case Studies
+                  </button>
                 </div>
-              ) : companyData && (
-                <>
-                  <div className="lg:col-span-2">
-                    <ViewModeFilters
-                      companies={companyData.companies}
-                      filters={companyFilters}
-                      onFiltersChange={setCompanyFilters}
-                      filteredCount={filteredStats.filteredCount}
-                      totalCount={filteredStats.totalCount}
-                      filteredPUM={filteredStats.filteredPUM}
-                      mappableCount={filteredStats.mappableCount}
-                    />
-                  </div>
-                  <div className="lg:col-span-1 space-y-3">
-                    {/* Compliance Zones Toggle */}
-                    <div className="bg-white border border-gray-200 rounded-lg p-3">
-                      <label className="flex items-center gap-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={showComplianceZones}
-                          onChange={(e) => setShowComplianceZones(e.target.checked)}
-                          className="h-5 w-5 text-blue-500 focus:ring-blue-500 border-gray-300 rounded accent-blue-500"
-                        />
-                        <div>
-                          <span className="text-sm font-medium text-gray-800">Show Compliance Zones</span>
-                          <p className="text-xs text-gray-500">
-                            {complianceZones.length} zone{complianceZones.length !== 1 ? 's' : ''} defined
-                          </p>
-                        </div>
-                      </label>
-                    </div>
-                    {/* Area Analysis Panel */}
-                    <AreaAnalysisPanel
-                      result={areaAnalysisResult}
-                      isAnalyzing={isAnalyzing}
-                      onClear={() => setAreaAnalysisResult(null)}
-                    />
-                  </div>
-                </>
-              ))}
+              </div>
 
-              {/* Admin Mode: Show territory controls */}
+              {/* State Selector */}
+              <div className="p-3 border-b border-gray-200">
+                <StateSelector selectedState={selectedState} onSelect={setSelectedState} />
+              </div>
+
+              {/* View Mode Content */}
+              {isViewMode && (
+                <div className="p-3 space-y-3">
+                  {companiesLoading ? (
+                    <div className="relative min-h-[150px] bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">
+                      <LoadingOverlay isLoading={true} delay={0} quote={loadingQuote} showQuote={true} />
+                    </div>
+                  ) : companyData && (
+                    <>
+                      <ViewModeFilters
+                        companies={companyData.companies}
+                        filters={companyFilters}
+                        onFiltersChange={setCompanyFilters}
+                        filteredCount={filteredStats.filteredCount}
+                        totalCount={filteredStats.totalCount}
+                        filteredPUM={filteredStats.filteredPUM}
+                        mappableCount={filteredStats.mappableCount}
+                      />
+                      {/* Compliance Zones Toggle */}
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={showComplianceZones}
+                            onChange={(e) => setShowComplianceZones(e.target.checked)}
+                            className="h-4 w-4 text-blue-500 focus:ring-blue-500 border-gray-300 rounded accent-blue-500"
+                          />
+                          <div>
+                            <span className="text-sm font-medium text-gray-800">Show Compliance Zones</span>
+                            <p className="text-xs text-gray-500">
+                              {complianceZones.length} zone{complianceZones.length !== 1 ? 's' : ''} defined
+                            </p>
+                          </div>
+                        </label>
+                      </div>
+                      {/* Area Analysis Panel */}
+                      <AreaAnalysisPanel
+                        result={areaAnalysisResult}
+                        isAnalyzing={isAnalyzing}
+                        onClear={() => setAreaAnalysisResult(null)}
+                      />
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Admin Mode Content */}
               {!isViewMode && (
-                <>
+                <div className="p-3 space-y-3">
+                  {/* Territory Selector */}
                   <TerritorySelector
                     territories={territories}
                     selectedTerritory={selectedTerritory}
                     onSelect={setSelectedTerritory}
                   />
-                  <div className="lg:col-span-2">
-                    <TerritoryManagementPanel
-                      territories={territories}
-                      territoryCounts={territoryCounts}
-                      onCreateTerritory={handleCreateTerritory}
-                      onUpdateTerritory={handleUpdateTerritory}
-                      onDeleteTerritory={handleDeleteTerritory}
-                    />
-                  </div>
-                </>
-              )}
-            </div>
 
-            {/* Admin Mode: Show toolbar and assignment mode */}
-            {!isViewMode && (
-              <div className="flex gap-4 flex-wrap">
-                <div className="flex-1 min-w-0">
+                  {/* Territory Management */}
+                  <TerritoryManagementPanel
+                    territories={territories}
+                    territoryCounts={territoryCounts}
+                    onCreateTerritory={handleCreateTerritory}
+                    onUpdateTerritory={handleUpdateTerritory}
+                    onDeleteTerritory={handleDeleteTerritory}
+                  />
+
+                  {/* Assignment Mode */}
+                  <AssignmentModeSelector
+                    mode={assignmentMode}
+                    onModeChange={setAssignmentMode}
+                  />
+
+                  {/* Toolbar */}
                   <Toolbar
                     data={data}
                     territories={territories}
@@ -1017,16 +979,9 @@ export default function MapPage() {
                     onClearTerritory={handleClearTerritory}
                     onImportState={handleImportState}
                   />
-                </div>
-                <div className="w-72 flex-shrink-0">
-                  <AssignmentModeSelector
-                    mode={assignmentMode}
-                    onModeChange={setAssignmentMode}
-                  />
-                </div>
-                {/* Compliance Zones Tool */}
-                <div className="w-64 flex-shrink-0">
-                  <div className="bg-white border border-gray-200 rounded-lg p-3">
+
+                  {/* Compliance Zones Tool */}
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
                     <div className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">
                       Compliance Zones
                     </div>
@@ -1035,7 +990,7 @@ export default function MapPage() {
                         type="checkbox"
                         checked={complianceDrawEnabled}
                         onChange={(e) => setComplianceDrawEnabled(e.target.checked)}
-                        className="h-5 w-5 text-blue-500 focus:ring-blue-500 border-gray-300 rounded accent-blue-500"
+                        className="h-4 w-4 text-blue-500 focus:ring-blue-500 border-gray-300 rounded accent-blue-500"
                       />
                       <div>
                         <span className="text-sm font-medium text-gray-800">Draw Compliance Zones</span>
@@ -1045,115 +1000,127 @@ export default function MapPage() {
                       </div>
                     </label>
                   </div>
+
+                  {/* Stats Panels */}
+                  <div className="space-y-3 pt-3 border-t border-gray-200">
+                    <StatsPanel
+                      total={stateStats.total}
+                      assigned={stateStats.assigned}
+                      unassigned={stateStats.unassigned}
+                      territories={territories}
+                      territoryCounts={territoryCounts}
+                      selectedState={selectedState}
+                    />
+                    {companyData && showCompanies && (
+                      <>
+                        <CompanyStatsPanel
+                          total={companyStats.total}
+                          withCoords={companyStats.withCoords}
+                          missingCoords={companyStats.missingCoords}
+                          byLifecycle={companyStats.byLifecycle}
+                          byCoordSource={companyStats.byCoordSource}
+                          selectedState={selectedState}
+                        />
+                        <PUMStatsPanel
+                          pumSummary={pumSummary}
+                          territories={territories}
+                          selectedState={selectedState}
+                        />
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Assignment result notification (admin mode only) */}
-      {!isViewMode && lastResult && (lastResult.assigned.length > 0 || lastResult.skipped.length > 0 || lastResult.reassigned.length > 0 || (lastResult.outsideState?.length || 0) > 0) && (
-        <div className="px-4 py-2 bg-red-50 border-b border-[#EE0B4F]/30 flex-shrink-0">
-          <p className="text-sm text-[#EE0B4F]">
-            {lastResult.assigned.length > 0 && (
-              <span className="font-semibold">
-                Assigned {lastResult.assigned.length} postcode
-                {lastResult.assigned.length !== 1 ? 's' : ''}
-              </span>
-            )}
-            {lastResult.reassigned.length > 0 && (
-              <span className="text-purple-700">
-                {lastResult.assigned.length > 0 ? ' | ' : ''}
-                Reassigned {lastResult.reassigned.length} postcode
-                {lastResult.reassigned.length !== 1 ? 's' : ''}
-              </span>
-            )}
-            {lastResult.skipped.length > 0 && (
-              <span className="text-amber-700">
-                {(lastResult.assigned.length > 0 || lastResult.reassigned.length > 0) ? ' | ' : ''}
-                Skipped {lastResult.skipped.length} (already assigned)
-              </span>
-            )}
-            {(lastResult.outsideState?.length || 0) > 0 && (
-              <span className="text-gray-500">
-                {(lastResult.assigned.length > 0 || lastResult.reassigned.length > 0 || lastResult.skipped.length > 0) ? ' | ' : ''}
-                Ignored {lastResult.outsideState?.length} (outside {selectedState})
-              </span>
-            )}
-          </p>
-        </div>
-      )}
-
-      <main className="flex-grow-map">
-        <div className="map-wrapper">
-        <Map
-          key={updateKey}
-          data={data}
-          territories={territories}
-          boundaries={boundaries}
-          selectedTerritory={selectedTerritory}
-          selectedState={selectedState}
-          clickToAssign={clickToAssign}
-          showUnassignedOnly={showUnassignedOnly}
-          showCompanies={showCompanies}
-          companies={companyData?.companies || {}}
-          filteredCompanies={filteredCompanies}
-          mode={appMode}
-          assignmentMode={assignmentMode}
-          complianceZones={complianceZones}
-          showComplianceZones={showComplianceZones || complianceDrawEnabled}
-          complianceDrawEnabled={complianceDrawEnabled}
-          onComplianceZoneCreated={handleComplianceZoneCreated}
-          onComplianceZoneDeleted={handleComplianceZoneDeleted}
-          onAssignment={handleAssignment}
-          onClickAssign={handleClickAssign}
-          onAreaAnalysis={handleAreaAnalysis}
-        />
-        </div>
-      </main>
-
-      {/* Footer - only show in admin mode */}
-      {!isViewMode && (
-        <footer className="p-4 bg-gray-50 border-t border-gray-200 flex-shrink-0 overflow-auto max-h-[40vh]">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="space-y-3">
-              <StatsPanel
-                total={stateStats.total}
-                assigned={stateStats.assigned}
-                unassigned={stateStats.unassigned}
-                territories={territories}
-                territoryCounts={territoryCounts}
-                selectedState={selectedState}
-              />
-              {companyData && showCompanies && (
-                <CompanyStatsPanel
-                  total={companyStats.total}
-                  withCoords={companyStats.withCoords}
-                  missingCoords={companyStats.missingCoords}
-                  byLifecycle={companyStats.byLifecycle}
-                  byCoordSource={companyStats.byCoordSource}
-                  selectedState={selectedState}
-                />
               )}
             </div>
-            {companyData && showCompanies && (
-              <PUMStatsPanel
-                pumSummary={pumSummary}
-                territories={territories}
-                selectedState={selectedState}
-              />
-            )}
-          </div>
-        </footer>
-      )}
+          )}
+        </aside>
 
-      {/* Compliance Stats Bar - View Mode only */}
-      <ComplianceStatsBar
-        companies={filteredCompanies}
-        zones={complianceZones}
-        visible={isViewMode && showComplianceZones}
-      />
+        {/* Right Side - Map Area */}
+        <div className="flex-1 min-w-0 flex flex-col relative">
+          {/* Top Bar with State Info & Assignment Notification */}
+          <div className="bg-gray-50 border-b border-gray-200 px-4 py-2 flex items-center justify-between flex-shrink-0">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-gray-700">
+                {selectedState === 'ALL' ? 'All States' : selectedState}
+              </span>
+              {!isViewMode && selectedTerritory && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-[#EE0B4F]/10 text-[#EE0B4F]">
+                  Editing: {selectedTerritory.name}
+                </span>
+              )}
+            </div>
+            <span className="text-xs text-gray-500">
+              {isViewMode ? 'View Mode' : 'Admin Mode'}
+            </span>
+          </div>
+
+          {/* Assignment result notification (admin mode only) */}
+          {!isViewMode && lastResult && (lastResult.assigned.length > 0 || lastResult.skipped.length > 0 || lastResult.reassigned.length > 0 || (lastResult.outsideState?.length || 0) > 0) && (
+            <div className="px-4 py-2 bg-red-50 border-b border-[#EE0B4F]/30 flex-shrink-0">
+              <p className="text-sm text-[#EE0B4F]">
+                {lastResult.assigned.length > 0 && (
+                  <span className="font-semibold">
+                    Assigned {lastResult.assigned.length} postcode
+                    {lastResult.assigned.length !== 1 ? 's' : ''}
+                  </span>
+                )}
+                {lastResult.reassigned.length > 0 && (
+                  <span className="text-purple-700">
+                    {lastResult.assigned.length > 0 ? ' | ' : ''}
+                    Reassigned {lastResult.reassigned.length} postcode
+                    {lastResult.reassigned.length !== 1 ? 's' : ''}
+                  </span>
+                )}
+                {lastResult.skipped.length > 0 && (
+                  <span className="text-amber-700">
+                    {(lastResult.assigned.length > 0 || lastResult.reassigned.length > 0) ? ' | ' : ''}
+                    Skipped {lastResult.skipped.length} (already assigned)
+                  </span>
+                )}
+                {(lastResult.outsideState?.length || 0) > 0 && (
+                  <span className="text-gray-500">
+                    {(lastResult.assigned.length > 0 || lastResult.reassigned.length > 0 || lastResult.skipped.length > 0) ? ' | ' : ''}
+                    Ignored {lastResult.outsideState?.length} (outside {selectedState})
+                  </span>
+                )}
+              </p>
+            </div>
+          )}
+
+          {/* Map Container */}
+          <div className="flex-1 relative">
+            <Map
+              key={updateKey}
+              data={data}
+              territories={territories}
+              boundaries={boundaries}
+              selectedTerritory={selectedTerritory}
+              selectedState={selectedState}
+              clickToAssign={clickToAssign}
+              showUnassignedOnly={showUnassignedOnly}
+              showCompanies={showCompanies}
+              companies={companyData?.companies || {}}
+              filteredCompanies={filteredCompanies}
+              mode={appMode}
+              assignmentMode={assignmentMode}
+              complianceZones={complianceZones}
+              showComplianceZones={showComplianceZones || complianceDrawEnabled}
+              complianceDrawEnabled={complianceDrawEnabled}
+              onComplianceZoneCreated={handleComplianceZoneCreated}
+              onComplianceZoneDeleted={handleComplianceZoneDeleted}
+              onAssignment={handleAssignment}
+              onClickAssign={handleClickAssign}
+              onAreaAnalysis={handleAreaAnalysis}
+            />
+          </div>
+
+          {/* Compliance Stats Bar - View Mode only */}
+          <ComplianceStatsBar
+            companies={filteredCompanies}
+            zones={complianceZones}
+            visible={isViewMode && showComplianceZones}
+          />
+        </div>
       </div>
     </>
   );
