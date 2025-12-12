@@ -113,132 +113,181 @@ export default function CompanyLayer({
   const map = useMap();
   const clusterGroupRef = useRef<L.MarkerClusterGroup | null>(null);
   const dimmedLayerRef = useRef<L.LayerGroup | null>(null);
+  const initializedRef = useRef(false);
 
   // Filter companies
   const { visibleCompanies, dimmedCompanies } = useMemo(() => {
-    const visible: CompanyData[] = [];
-    const dimmed: CompanyData[] = [];
+    const visibleList: CompanyData[] = [];
+    const dimmedList: CompanyData[] = [];
 
     companies.forEach((company) => {
       if (company.lat === null || company.long === null) return;
 
       if (isViewMode) {
-        visible.push(company);
+        visibleList.push(company);
       } else if (selectedState === 'ALL') {
-        visible.push(company);
+        visibleList.push(company);
       } else if (company.state === selectedState) {
-        visible.push(company);
+        visibleList.push(company);
       } else {
-        dimmed.push(company);
+        dimmedList.push(company);
       }
     });
 
-    return { visibleCompanies: visible, dimmedCompanies: dimmed };
+    return { visibleCompanies: visibleList, dimmedCompanies: dimmedList };
   }, [companies, selectedState, isViewMode]);
+
+  // Helper function to safely check if map is ready
+  const isMapReady = (): boolean => {
+    try {
+      const container = map.getContainer();
+      if (!container || !container.parentElement) return false;
+      // Check if map pane exists (prevents _leaflet_pos errors)
+      const pane = map.getPane('mapPane');
+      if (!pane) return false;
+      return true;
+    } catch {
+      return false;
+    }
+  };
 
   // Create and manage the marker cluster group
   useEffect(() => {
     if (!visible) {
       // Remove existing layers when not visible
-      if (clusterGroupRef.current) {
-        map.removeLayer(clusterGroupRef.current);
+      try {
+        if (clusterGroupRef.current && map.hasLayer(clusterGroupRef.current)) {
+          map.removeLayer(clusterGroupRef.current);
+        }
         clusterGroupRef.current = null;
-      }
-      if (dimmedLayerRef.current) {
-        map.removeLayer(dimmedLayerRef.current);
+        if (dimmedLayerRef.current && map.hasLayer(dimmedLayerRef.current)) {
+          map.removeLayer(dimmedLayerRef.current);
+        }
         dimmedLayerRef.current = null;
+      } catch (e) {
+        // Ignore errors during cleanup
       }
       return;
     }
 
-    // Create cluster group if it doesn't exist
-    if (!clusterGroupRef.current) {
-      clusterGroupRef.current = L.markerClusterGroup({
-        chunkedLoading: true,
-        maxClusterRadius: 50,
-        spiderfyOnMaxZoom: true,
-        showCoverageOnHover: false,
-        zoomToBoundsOnClick: true,
-        disableClusteringAtZoom: 15,
-        iconCreateFunction: (cluster) => {
-          const count = cluster.getChildCount();
-          let className = 'marker-cluster-small'; // 1-50: Ailo blue
+    // Delay initialization to ensure map is fully ready
+    const initializeMarkers = () => {
+      if (!isMapReady()) {
+        // Retry after a short delay if map isn't ready
+        setTimeout(initializeMarkers, 100);
+        return;
+      }
 
-          if (count > 200) {
-            className = 'marker-cluster-large'; // 200+: Ailo dark navy
-          } else if (count > 50) {
-            className = 'marker-cluster-medium'; // 51-200: Ailo pink
-          }
+      try {
+        // Create cluster group if it doesn't exist
+        if (!clusterGroupRef.current) {
+          clusterGroupRef.current = L.markerClusterGroup({
+            chunkedLoading: true,
+            maxClusterRadius: 50,
+            spiderfyOnMaxZoom: true,
+            showCoverageOnHover: false,
+            zoomToBoundsOnClick: true,
+            disableClusteringAtZoom: 15,
+            iconCreateFunction: (cluster) => {
+              const count = cluster.getChildCount();
+              let className = 'marker-cluster-small';
 
-          return L.divIcon({
-            html: `<div><span>${count}</span></div>`,
-            className: `marker-cluster ${className}`,
-            iconSize: L.point(40, 40),
+              if (count >= 100) {
+                className = 'marker-cluster-large';
+              } else if (count >= 10) {
+                className = 'marker-cluster-medium';
+              }
+
+              return L.divIcon({
+                html: `<div><span>${count}</span></div>`,
+                className: `marker-cluster ${className}`,
+                iconSize: L.point(40, 40),
+              });
+            },
           });
-        },
-      });
-      map.addLayer(clusterGroupRef.current);
-    }
+          map.addLayer(clusterGroupRef.current);
+        }
 
-    // Create dimmed layer for admin mode
-    if (!dimmedLayerRef.current && !isViewMode) {
-      dimmedLayerRef.current = L.layerGroup();
-      map.addLayer(dimmedLayerRef.current);
-    }
+        // Create dimmed layer for admin mode
+        if (!dimmedLayerRef.current && !isViewMode) {
+          dimmedLayerRef.current = L.layerGroup();
+          map.addLayer(dimmedLayerRef.current);
+        }
 
-    // Clear existing markers
-    clusterGroupRef.current.clearLayers();
-    if (dimmedLayerRef.current) {
-      dimmedLayerRef.current.clearLayers();
-    }
+        // Clear existing markers
+        if (clusterGroupRef.current) {
+          clusterGroupRef.current.clearLayers();
+        }
+        if (dimmedLayerRef.current) {
+          dimmedLayerRef.current.clearLayers();
+        }
 
-    // Add visible company markers to cluster group
-    const markers: L.CircleMarker[] = [];
-    visibleCompanies.forEach((company) => {
-      const color = getLifecycleColor(company.lifecycleStage);
-      const isPostcodeFallback = company.coordSource === 'postcode';
+        // Add visible company markers to cluster group
+        const markers: L.CircleMarker[] = [];
+        visibleCompanies.forEach((company) => {
+          const color = getLifecycleColor(company.lifecycleStage);
+          const isPostcodeFallback = company.coordSource === 'postcode';
 
-      const marker = L.circleMarker([company.lat!, company.long!], {
-        radius: isViewMode ? 8 : 7,
-        fillColor: color,
-        fillOpacity: 0.85,
-        color: isPostcodeFallback ? '#000' : color,
-        weight: isPostcodeFallback ? 2 : 1.5,
-        dashArray: isPostcodeFallback ? '3,3' : undefined,
-      });
+          const marker = L.circleMarker([company.lat!, company.long!], {
+            radius: isViewMode ? 8 : 7,
+            fillColor: color,
+            fillOpacity: 0.85,
+            color: isPostcodeFallback ? '#000' : color,
+            weight: isPostcodeFallback ? 2 : 1.5,
+            dashArray: isPostcodeFallback ? '3,3' : undefined,
+          });
 
-      marker.bindPopup(generatePopupContent(company), {
-        maxWidth: 300,
-        className: 'company-popup',
-      });
+          marker.bindPopup(generatePopupContent(company), {
+            maxWidth: 300,
+            className: 'company-popup',
+          });
 
-      markers.push(marker);
-    });
-
-    clusterGroupRef.current.addLayers(markers);
-
-    // Add dimmed markers (admin mode only, not clustered)
-    if (dimmedLayerRef.current && !isViewMode) {
-      dimmedCompanies.forEach((company) => {
-        const marker = L.circleMarker([company.lat!, company.long!], {
-          radius: 4,
-          fillColor: '#d1d5db',
-          fillOpacity: 0.2,
-          color: '#d1d5db',
-          weight: 1,
-          opacity: 0.3,
+          markers.push(marker);
         });
-        dimmedLayerRef.current!.addLayer(marker);
-      });
-    }
+
+        if (clusterGroupRef.current) {
+          clusterGroupRef.current.addLayers(markers);
+        }
+
+        // Add dimmed markers (admin mode only, not clustered)
+        if (dimmedLayerRef.current && !isViewMode) {
+          dimmedCompanies.forEach((company) => {
+            const marker = L.circleMarker([company.lat!, company.long!], {
+              radius: 4,
+              fillColor: '#d1d5db',
+              fillOpacity: 0.2,
+              color: '#d1d5db',
+              weight: 1,
+              opacity: 0.3,
+            });
+            dimmedLayerRef.current!.addLayer(marker);
+          });
+        }
+
+        initializedRef.current = true;
+      } catch (e) {
+        console.warn('CompanyLayer: Error initializing markers, will retry', e);
+        // Retry on error
+        setTimeout(initializeMarkers, 200);
+      }
+    };
+
+    // Start initialization with a small delay on first render
+    const delay = initializedRef.current ? 0 : 150;
+    const timer = setTimeout(initializeMarkers, delay);
 
     // Cleanup function
     return () => {
-      if (clusterGroupRef.current) {
-        clusterGroupRef.current.clearLayers();
-      }
-      if (dimmedLayerRef.current) {
-        dimmedLayerRef.current.clearLayers();
+      clearTimeout(timer);
+      try {
+        if (clusterGroupRef.current) {
+          clusterGroupRef.current.clearLayers();
+        }
+        if (dimmedLayerRef.current) {
+          dimmedLayerRef.current.clearLayers();
+        }
+      } catch {
+        // Ignore cleanup errors
       }
     };
   }, [map, visible, visibleCompanies, dimmedCompanies, isViewMode]);
@@ -246,11 +295,15 @@ export default function CompanyLayer({
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (clusterGroupRef.current) {
-        map.removeLayer(clusterGroupRef.current);
-      }
-      if (dimmedLayerRef.current) {
-        map.removeLayer(dimmedLayerRef.current);
+      try {
+        if (clusterGroupRef.current && map.hasLayer(clusterGroupRef.current)) {
+          map.removeLayer(clusterGroupRef.current);
+        }
+        if (dimmedLayerRef.current && map.hasLayer(dimmedLayerRef.current)) {
+          map.removeLayer(dimmedLayerRef.current);
+        }
+      } catch {
+        // Ignore cleanup errors
       }
     };
   }, [map]);

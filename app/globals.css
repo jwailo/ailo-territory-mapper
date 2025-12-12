@@ -56,6 +56,40 @@ body {
   overflow: hidden;
 }
 
+/* Horizontal split layout - 50/50 left-right */
+.split-layout {
+  display: flex;
+  flex-direction: row;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Left panel - controls and stats */
+.split-left-panel {
+  width: 50%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+/* Left panel scrollable content */
+.split-left-content {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Right panel - map */
+.split-right-panel {
+  width: 50%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
 /* Map section - expands to fill all remaining space */
 .flex-grow-map {
   flex: 1 1 auto;

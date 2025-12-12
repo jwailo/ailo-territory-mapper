@@ -1,40 +1,54 @@
 import Papa from 'papaparse';
-import { PostcodeStore, PostcodeData, RawCSVRow, PostcodeBoundaryFeature, PostcodeBoundaryStore } from '../types';
+import {
+  PostcodeStore,
+  PostcodeData,
+  RawCSVRow,
+  PostcodeBoundaryFeature,
+  PostcodeBoundaryStore,
+  AustralianState,
+} from '../types';
 
-// Cache for lazy-loaded boundaries
-let cachedBoundaries: PostcodeBoundaryStore | null = null;
+// States that should be treated together for boundary loading
+// NSW file now contains both NSW and ACT boundaries
+const COMBINED_STATES: Record<string, AustralianState> = {
+  'ACT': 'NSW', // ACT uses NSW boundary file (which contains both)
+};
 
-// Load postcode boundary GeoJSON - exported for lazy loading
-export async function loadPostcodeBoundaries(): Promise<PostcodeBoundaryStore> {
-  // Return cached if already loaded
-  if (cachedBoundaries) {
-    return cachedBoundaries;
+// Load postcode boundaries for a specific state
+export async function loadPostcodeBoundaries(
+  state: AustralianState
+): Promise<PostcodeBoundaryStore> {
+  // Skip loading for "ALL" - boundaries are too large
+  if (state === 'ALL') {
+    return { features: {}, loadedState: null };
   }
 
+  // Use combined boundary file if applicable (e.g., ACT uses NSW file)
+  const boundaryFile = COMBINED_STATES[state] || state;
+
   try {
-    console.log('Loading postcode boundaries GeoJSON (37MB)...');
-    const response = await fetch('/au-postcodes.geojson');
+    const response = await fetch(`/postcode-boundaries/${boundaryFile}.geojson`);
     if (!response.ok) {
-      console.warn('Failed to load postcode boundaries GeoJSON:', response.status);
-      return { features: {}, loaded: false };
+      console.warn(`Failed to load boundaries for ${state}: ${response.status}`);
+      return { features: {}, loadedState: null };
     }
 
     const geojson = await response.json();
     const features: Record<string, PostcodeBoundaryFeature> = {};
 
+    // Index features by postcode for fast lookup
     for (const feature of geojson.features) {
       const postcode = feature.properties?.POA;
       if (postcode) {
-        features[postcode] = feature as PostcodeBoundaryFeature;
+        features[postcode] = feature;
       }
     }
 
-    console.log(`Loaded ${Object.keys(features).length} postcode boundaries`);
-    cachedBoundaries = { features, loaded: true };
-    return cachedBoundaries;
+    console.log(`Loaded ${Object.keys(features).length} postcode boundaries for ${state}`);
+    return { features, loadedState: state };
   } catch (error) {
-    console.error('Error loading postcode boundaries:', error);
-    return { features: {}, loaded: false };
+    console.error(`Error loading boundaries for ${state}:`, error);
+    return { features: {}, loadedState: null };
   }
 }
 
@@ -92,8 +106,7 @@ export async function loadPostcodes(): Promise<PostcodeStore> {
 
         resolve({
           postcodes,
-          // Boundaries start empty - lazy loaded when admin mode activated
-          boundaries: { features: {}, loaded: false },
+          boundaries: { features: {}, loadedState: null },
           stats: {
             total,
             assigned: 0,

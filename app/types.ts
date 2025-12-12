@@ -36,7 +36,7 @@ export interface PostcodeBoundaryFeature {
 export interface PostcodeBoundaryStore {
   // Keyed by postcode (e.g., "2000") - NOT postcode-state
   features: Record<string, PostcodeBoundaryFeature>;
-  loaded: boolean;
+  loadedState: AustralianState | null; // Which state's boundaries are loaded
 }
 
 export interface RawCSVRow {

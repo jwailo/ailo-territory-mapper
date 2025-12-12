@@ -3,132 +3,81 @@
 import { useMemo } from 'react';
 import { GeoJSON } from 'react-leaflet';
 import * as turf from '@turf/turf';
-import type { Feature, Polygon, MultiPolygon, GeoJsonProperties } from 'geojson';
-import { PostcodeStore, Territory, PostcodeData, PostcodeBoundaryStore } from '../types';
+import type { Feature, FeatureCollection, Polygon, MultiPolygon } from 'geojson';
+import { PostcodeStore, Territory, PostcodeData, PostcodeBoundaryStore, AustralianState } from '../types';
+
+// States that are combined for territory polygon display
+// When NSW is selected, also include ACT postcodes (and vice versa)
+const COMBINED_STATE_GROUPS: Record<string, AustralianState[]> = {
+  'NSW': ['NSW', 'ACT'],
+  'ACT': ['NSW', 'ACT'],
+};
+
+// Check if a postcode's state matches the selected state (considering combined groups)
+function isInSelectedStateGroup(postcodeState: string, selectedState: AustralianState): boolean {
+  if (selectedState === 'ALL') return true;
+  const stateGroup = COMBINED_STATE_GROUPS[selectedState];
+  if (stateGroup) {
+    return stateGroup.includes(postcodeState as AustralianState);
+  }
+  return postcodeState === selectedState;
+}
 
 interface TerritoryPolygonLayerProps {
   postcodes: PostcodeStore['postcodes'];
-  boundaries: PostcodeBoundaryStore;
   territories: Record<string, Territory>;
+  boundaries: PostcodeBoundaryStore;
+  selectedState: AustralianState;
   visible: boolean;
 }
 
-interface TerritoryPolygon {
+interface TerritoryPolygonData {
   territoryName: string;
   color: string;
-  geoJson: Feature<Polygon | MultiPolygon, GeoJsonProperties> | null;
-}
-
-// Merge multiple postcode polygon boundaries into a single territory polygon
-function mergePostcodeBoundaries(
-  postcodeNumbers: string[],
-  boundaries: PostcodeBoundaryStore
-): Feature<Polygon | MultiPolygon, GeoJsonProperties> | null {
-  if (!boundaries.loaded || postcodeNumbers.length === 0) {
-    return null;
-  }
-
-  // Collect all boundary features for these postcodes
-  const features: Feature<Polygon | MultiPolygon, GeoJsonProperties>[] = [];
-
-  for (const postcode of postcodeNumbers) {
-    const boundary = boundaries.features[postcode];
-    if (boundary) {
-      // Convert to turf-compatible feature
-      features.push(boundary as Feature<Polygon | MultiPolygon, GeoJsonProperties>);
-    }
-  }
-
-  if (features.length === 0) {
-    return null;
-  }
-
-  if (features.length === 1) {
-    return features[0];
-  }
-
-  try {
-    // Use turf.union to merge all polygons into one
-    // Start with the first feature and progressively union with the rest
-    let merged: Feature<Polygon | MultiPolygon, GeoJsonProperties> | null = features[0];
-
-    for (let i = 1; i < features.length; i++) {
-      if (merged) {
-        const result = turf.union(
-          turf.featureCollection([merged, features[i]])
-        );
-        if (result) {
-          merged = result as Feature<Polygon | MultiPolygon, GeoJsonProperties>;
-        }
-      }
-    }
-
-    return merged;
-  } catch (error) {
-    console.error('Error merging postcode boundaries:', error);
-    // Fallback: return as a feature collection (will render each separately)
-    return null;
-  }
-}
-
-// Fallback: Create convex hull from postcode center points (when boundaries unavailable)
-function createConvexHullFallback(
-  territoryPostcodes: PostcodeData[]
-): Feature<Polygon, GeoJsonProperties> | null {
-  if (territoryPostcodes.length < 3) {
-    return null;
-  }
-
-  try {
-    const points = territoryPostcodes.map((pc) =>
-      turf.point([pc.long, pc.lat])
-    );
-    const featureCollection = turf.featureCollection(points);
-    const hull = turf.convex(featureCollection);
-
-    if (hull) {
-      // Add a small buffer to make the polygon look better
-      const buffered = turf.buffer(hull, 2, { units: 'kilometers' });
-      return buffered as Feature<Polygon, GeoJsonProperties>;
-    }
-  } catch (error) {
-    console.error('Error creating convex hull fallback:', error);
-  }
-  return null;
+  // Use FeatureCollection to render all postcode boundaries together (faster than union)
+  featureCollection: FeatureCollection | null;
+  // Fallback convex hull for when no boundaries available
+  convexHull: Feature<Polygon> | null;
 }
 
 export default function TerritoryPolygonLayer({
   postcodes,
-  boundaries,
   territories,
+  boundaries,
+  selectedState,
   visible,
 }: TerritoryPolygonLayerProps) {
-  // Group postcodes by territory and merge their actual boundary polygons
+  // Group postcodes by territory and create polygon data
   const territoryPolygons = useMemo(() => {
     if (!visible) {
       return [];
     }
 
-    // Group postcodes by territory
+    // Only use boundaries if they're loaded for the correct state (or combined state group)
+    // This prevents rendering with stale boundaries from a different state
+    const boundariesMatchState = boundaries.loadedState !== null &&
+      isInSelectedStateGroup(boundaries.loadedState, selectedState);
+    const hasBoundaries = boundariesMatchState && Object.keys(boundaries.features).length > 0;
+
+    // Group postcodes by territory, filtering by selected state
+    // This ensures we only show territory polygons for postcodes in the current state
     const postcodesByTerritory: Record<string, PostcodeData[]> = {};
-    const postcodeNumbersByTerritory: Record<string, Set<string>> = {};
 
     Object.values(postcodes).forEach((pc) => {
       if (pc.territory && pc.lat && pc.long) {
+        // Filter by selected state group - NSW includes ACT and vice versa
+        if (!isInSelectedStateGroup(pc.state, selectedState)) {
+          return;
+        }
         if (!postcodesByTerritory[pc.territory]) {
           postcodesByTerritory[pc.territory] = [];
-          postcodeNumbersByTerritory[pc.territory] = new Set();
         }
         postcodesByTerritory[pc.territory].push(pc);
-        // Store just the postcode number (without state) for boundary lookup
-        postcodeNumbersByTerritory[pc.territory].add(pc.postcode);
       }
     });
 
-    const polygons: TerritoryPolygon[] = [];
-    const boundariesAvailable = boundaries.loaded && Object.keys(boundaries.features).length > 0;
-
-    console.log('TerritoryPolygonLayer: boundaries loaded:', boundariesAvailable);
+    // Create polygon data for each territory
+    const polygons: TerritoryPolygonData[] = [];
 
     Object.entries(postcodesByTerritory).forEach(([territoryName, territoryPostcodes]) => {
       // Find territory by name (territories object is keyed by ID, not name)
@@ -137,60 +86,116 @@ export default function TerritoryPolygonLayer({
         return;
       }
 
-      let geoJson: Feature<Polygon | MultiPolygon, GeoJsonProperties> | null = null;
+      try {
+        // Try to use actual postcode boundaries if available
+        if (hasBoundaries) {
+          const boundaryFeatures: Feature<Polygon | MultiPolygon>[] = [];
 
-      if (boundariesAvailable) {
-        // Use actual postcode boundary merging
-        const postcodeNumbers = Array.from(postcodeNumbersByTerritory[territoryName]);
-        geoJson = mergePostcodeBoundaries(postcodeNumbers, boundaries);
+          territoryPostcodes.forEach((pc) => {
+            const boundary = boundaries.features[pc.postcode];
+            if (boundary) {
+              boundaryFeatures.push(boundary as Feature<Polygon | MultiPolygon>);
+            }
+          });
 
-        if (geoJson) {
-          console.log(`TerritoryPolygonLayer: ${territoryName} merged ${postcodeNumbers.length} postcode boundaries`);
+          if (boundaryFeatures.length > 0) {
+            // Instead of expensive union, just render all boundaries as a FeatureCollection
+            // This is much faster and still shows the territory area correctly
+            const featureCollection: FeatureCollection = {
+              type: 'FeatureCollection',
+              features: boundaryFeatures,
+            };
+
+            polygons.push({
+              territoryName,
+              color: territory.color,
+              featureCollection,
+              convexHull: null,
+            });
+            return;
+          }
         }
-      }
 
-      // Fallback to convex hull if boundaries not available or merge failed
-      if (!geoJson) {
-        geoJson = createConvexHullFallback(territoryPostcodes);
-        if (geoJson) {
-          console.log(`TerritoryPolygonLayer: ${territoryName} using convex hull fallback`);
+        // Fallback to convex hull if no boundaries or not enough
+        if (territoryPostcodes.length < 3) {
+          return;
         }
-      }
 
-      if (geoJson) {
-        polygons.push({
-          territoryName,
-          color: territory.color,
-          geoJson,
-        });
+        // Create Turf.js points
+        const points = territoryPostcodes.map((pc) =>
+          turf.point([pc.long, pc.lat])
+        );
+        const fc = turf.featureCollection(points);
+
+        // Create convex hull around the points
+        const hull = turf.convex(fc);
+
+        if (hull) {
+          // Add a small buffer to make the polygon look better
+          const buffered = turf.buffer(hull, 2, { units: 'kilometers' });
+
+          polygons.push({
+            territoryName,
+            color: territory.color,
+            featureCollection: null,
+            convexHull: buffered as Feature<Polygon>,
+          });
+        }
+      } catch (error) {
+        console.error(`Error creating polygon for ${territoryName}:`, error);
       }
     });
 
-    console.log('TerritoryPolygonLayer: created', polygons.length, 'territory polygons');
     return polygons;
-  }, [postcodes, boundaries, territories, visible]);
+  }, [postcodes, territories, boundaries, selectedState, visible]);
 
   if (!visible || territoryPolygons.length === 0) {
     return null;
   }
 
+  // Create a unique key based on state and boundaries to force GeoJSON re-render
+  // GeoJSON component doesn't update when data prop changes, so we need key changes
+  const boundaryKey = `${selectedState}-${boundaries.loadedState || 'none'}-${Object.keys(boundaries.features).length}`;
+
   return (
     <>
-      {territoryPolygons.map((polygon) => (
-        polygon.geoJson && (
-          <GeoJSON
-            key={`territory-polygon-${polygon.territoryName}`}
-            data={polygon.geoJson}
-            style={{
-              fillColor: polygon.color,
-              fillOpacity: 0.25,
-              color: polygon.color,
-              opacity: 0.8,
-              weight: 2,
-            }}
-          />
-        )
-      ))}
+      {territoryPolygons.map((polygon) => {
+        // Render boundary-based territories (FeatureCollection of individual postcodes)
+        if (polygon.featureCollection) {
+          return (
+            <GeoJSON
+              key={`territory-boundaries-${polygon.territoryName}-${boundaryKey}`}
+              data={polygon.featureCollection}
+              style={{
+                fillColor: polygon.color,
+                fillOpacity: 0.3,
+                color: polygon.color,
+                opacity: 0.8,
+                weight: 1,
+              }}
+            />
+          );
+        }
+
+        // Render convex hull fallback
+        if (polygon.convexHull) {
+          return (
+            <GeoJSON
+              key={`territory-hull-${polygon.territoryName}-${boundaryKey}`}
+              data={polygon.convexHull}
+              style={{
+                fillColor: polygon.color,
+                fillOpacity: 0.2,
+                color: polygon.color,
+                opacity: 0.6,
+                weight: 2,
+              }}
+            />
+          );
+        }
+
+        return null;
+      })}
     </>
   );
 }

@@ -23,6 +23,7 @@ import {
   AssignmentMode,
   AreaAnalysisResult,
   ComplianceZone,
+  PostcodeBoundaryStore,
 } from '../types';
 import { getPostcodesInPolygon, assignPostcodes } from '../utils/territoryAssignment';
 import { getCompaniesInPolygon, analyzeArea } from '../utils/areaAnalysis';
@@ -45,6 +46,7 @@ export interface TargetLocation {
 interface MapProps {
   data: PostcodeStore;
   territories: Record<string, Territory>;
+  boundaries: PostcodeBoundaryStore;
   selectedTerritory: Territory | null;
   selectedState: AustralianState;
   clickToAssign: boolean;
@@ -290,6 +292,7 @@ function AnalysisDrawControl({
 export default function Map({
   data,
   territories,
+  boundaries,
   selectedTerritory,
   selectedState,
   clickToAssign,
@@ -396,8 +399,9 @@ export default function Map({
       {/* Territory polygon layer - render filled polygons for each territory */}
       <TerritoryPolygonLayer
         postcodes={data.postcodes}
-        boundaries={data.boundaries}
         territories={territories}
+        boundaries={boundaries}
+        selectedState={selectedState}
         visible={!isViewMode}
       />
 

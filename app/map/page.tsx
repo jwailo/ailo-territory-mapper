@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { loadPostcodes } from '../utils/loadPostcodes';
+import { loadPostcodes, loadPostcodeBoundaries } from '../utils/loadPostcodes';
 import { loadCompanies, calculateCompanyStats } from '../utils/loadCompanies';
 import { calculateStats } from '../utils/territoryAssignment';
 import {
@@ -55,6 +55,7 @@ import {
   AssignmentMode,
   AreaAnalysisResult,
   ComplianceZone,
+  PostcodeBoundaryStore,
 } from '../types';
 import StateSelector from '../components/StateSelector';
 import ModeToggle from '../components/ModeToggle';
@@ -131,6 +132,12 @@ export default function MapPage() {
   const [complianceZones, setComplianceZones] = useState<ComplianceZone[]>([]);
   const [showComplianceZones, setShowComplianceZones] = useState(false);
   const [complianceDrawEnabled, setComplianceDrawEnabled] = useState(false);
+
+  // Postcode boundary state (for territory polygon snapping)
+  const [boundaries, setBoundaries] = useState<PostcodeBoundaryStore>({
+    features: {},
+    loadedState: null,
+  });
 
   // Collapsible panel state
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
@@ -714,6 +721,28 @@ export default function MapPage() {
     }
   }, [data, companyData, territories, selectedState]);
 
+  // Load postcode boundaries when state changes and in admin mode
+  useEffect(() => {
+    // Only load boundaries when in admin mode and a specific state is selected
+    if (appMode !== 'admin' || selectedState === 'ALL') {
+      // Clear boundaries when not needed
+      if (boundaries.loadedState !== null) {
+        setBoundaries({ features: {}, loadedState: null });
+      }
+      return;
+    }
+
+    // Skip if already loaded for this state
+    if (boundaries.loadedState === selectedState) {
+      return;
+    }
+
+    // Load boundaries for the selected state
+    loadPostcodeBoundaries(selectedState).then((result) => {
+      setBoundaries(result);
+    });
+  }, [appMode, selectedState, boundaries.loadedState]);
+
   // Show nothing while checking auth status
   if (!authChecked) {
     return (
@@ -1062,6 +1091,7 @@ export default function MapPage() {
           key={updateKey}
           data={data}
           territories={territories}
+          boundaries={boundaries}
           selectedTerritory={selectedTerritory}
           selectedState={selectedState}
           clickToAssign={clickToAssign}

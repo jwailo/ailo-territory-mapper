@@ -56,8 +56,8 @@ export default function AdminPasswordModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-start justify-center pt-20 z-50">
-      <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4">
+    <div className="fixed inset-0 bg-black/50 flex items-start justify-center pt-20 z-[10000]">
+      <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4 relative z-[10001]">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-gray-900">Admin Access Required</h2>
           <button
