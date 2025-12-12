@@ -1,5 +1,5 @@
 import { supabase, DbCompany, DbTerritory, DbPostcodeAssignment, DbComplianceZone } from './supabase';
-import { CompanyData, CompanyStore, Territory, LifecycleStage, CoordSource, ComplianceZone } from '../types';
+import { CompanyData, CompanyStore, Territory, LifecycleStage, CoordSource, ComplianceZone, PostcodeData } from '../types';
 
 const HUBSPOT_ACCOUNT_ID = '49213690';
 
@@ -66,7 +66,9 @@ async function fetchAllCompanies(): Promise<DbCompany[]> {
 }
 
 // Load companies from Supabase
-export async function loadCompaniesFromSupabase(): Promise<CompanyStore | null> {
+export async function loadCompaniesFromSupabase(
+  postcodes?: Record<string, PostcodeData>
+): Promise<CompanyStore | null> {
   // Use pagination to fetch all companies (bypasses Supabase row limits)
   const data = await fetchAllCompanies();
 
@@ -94,11 +96,111 @@ export async function loadCompaniesFromSupabase(): Promise<CompanyStore | null> 
     } as Record<LifecycleStage, number>,
   };
 
+  let postcodeFallbackCount = 0;
+  let noPostcodeCount = 0;
+  let noStateCount = 0;
+  let noMatchCount = 0;
+  const unmatchedSamples: string[] = [];
+
+  // Debug: log sample postcode keys from the lookup
+  console.log('[DEBUG] Postcodes lookup passed:', postcodes ? `${Object.keys(postcodes).length} entries` : 'UNDEFINED');
+
+  // Helper to normalize postcodes - pad with leading zeros for NT (0800-0899) and other short postcodes
+  const normalizePostcode = (pc: string): string => {
+    const trimmed = pc.trim();
+    // Australian postcodes are 4 digits, pad with leading zeros if shorter
+    if (/^\d+$/.test(trimmed) && trimmed.length < 4) {
+      return trimmed.padStart(4, '0');
+    }
+    return trimmed;
+  };
+
   for (const row of data) {
+    // Filter out New Zealand companies
+    const domain = row.domain?.toLowerCase() || '';
+    const postcodeValue = row.postcode?.toLowerCase() || '';
+    const address = row.address?.toLowerCase() || '';
+    const city = row.city?.toLowerCase() || '';
+    const name = row.name?.toLowerCase() || '';
+
+    // Skip if domain contains .nz
+    if (domain.includes('.nz')) {
+      continue;
+    }
+    // Skip if postcode is 'International'
+    if (postcodeValue === 'international') {
+      continue;
+    }
+    // Skip if address or city contains NZ locations
+    if (
+      address.includes('auckland') ||
+      address.includes('rototuna') ||
+      address.includes('christchurch') ||
+      address.includes('hamilton') ||
+      city.includes('auckland') ||
+      city.includes('rototuna') ||
+      city.includes('christchurch') ||
+      city.includes('hamilton')
+    ) {
+      continue;
+    }
+    // Skip if company name contains NZ indicators
+    if (
+      name.includes('auckland') ||
+      name.includes(' nz') ||
+      name.includes('(nz)') ||
+      name.includes('new zealand') ||
+      name.includes('harcourts corporate nz') ||
+      name.includes('eves real estate') ||
+      name.includes('staywell property management') ||
+      name.includes('pure rental nz') ||
+      name.includes('my agent')
+    ) {
+      continue;
+    }
+
     const lifecycleStage = normalizeLifecycleStage(row.lifecycle_stage);
-    const lat = row.latitude;
-    const long = row.longitude;
-    const coordSource = (row.coord_source as CoordSource) || 'missing';
+    const rawLat = row.latitude;
+    const rawLong = row.longitude;
+    const companyPostcode = row.postcode?.trim();
+    const companyState = row.state?.trim().toUpperCase();
+
+    let lat: number | null = null;
+    let long: number | null = null;
+    let coordSource: CoordSource = 'missing';
+
+    // Check if company has valid coordinates from HubSpot/Supabase
+    if (rawLat !== null && rawLong !== null && rawLat !== 0 && rawLong !== 0) {
+      lat = rawLat;
+      long = rawLong;
+      coordSource = (row.coord_source as CoordSource) || 'hubspot';
+    } else if (postcodes && companyPostcode && companyState) {
+      // Try postcode centroid fallback with normalization
+      const normalizedPostcode = normalizePostcode(companyPostcode);
+      const postcodeKey = `${normalizedPostcode}-${companyState}`;
+      const postcodeData = postcodes[postcodeKey];
+      if (postcodeData) {
+        lat = postcodeData.lat;
+        long = postcodeData.long;
+        coordSource = 'postcode';
+        postcodeFallbackCount++;
+      } else {
+        noMatchCount++;
+        // Collect samples of unmatched postcodes for debugging
+        if (unmatchedSamples.length < 10) {
+          unmatchedSamples.push(`${postcodeKey} (${row.name})`);
+        }
+      }
+    } else {
+      if (!companyPostcode) noPostcodeCount++;
+      if (!companyState) noStateCount++;
+    }
+
+    // Get territory from postcode data if available
+    const normalizedPcForTerritory = companyPostcode ? normalizePostcode(companyPostcode) : '';
+    const territoryPostcodeKey = `${normalizedPcForTerritory}-${companyState}`;
+    const territoryPostcodeData = postcodes?.[territoryPostcodeKey];
+    const territory = territoryPostcodeData?.territory || null;
 
     companies[row.id] = {
       id: row.id,
@@ -116,7 +218,7 @@ export async function loadCompaniesFromSupabase(): Promise<CompanyStore | null> 
       pum: row.pum || 0,
       hubspotUrl: row.hubspot_url || buildHubSpotUrl(row.id),
       coordSource,
-      territory: null, // Will be set from postcode assignments
+      territory,
     };
 
     stats.total++;
@@ -128,6 +230,11 @@ export async function loadCompaniesFromSupabase(): Promise<CompanyStore | null> 
     stats.byLifecycle[lifecycleStage]++;
   }
 
+  console.log(`[DEBUG] Postcode fallback stats: ${postcodeFallbackCount} applied, ${noMatchCount} no match, ${noPostcodeCount} missing postcode, ${noStateCount} missing state`);
+  if (unmatchedSamples.length > 0) {
+    console.log('[DEBUG] Sample unmatched postcodes:', unmatchedSamples);
+  }
+  console.log(`[DEBUG] Final company stats: ${stats.withCoords} with coords, ${stats.missingCoords} missing coords, ${stats.total} total`);
   return { companies, stats };
 }
 

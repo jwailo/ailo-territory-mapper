@@ -75,6 +75,41 @@ async function loadCompaniesFromCSV(
           const id = row['Record ID']?.trim();
           if (!id) return;
 
+          // Filter out New Zealand companies
+          const domain = row['Company Domain Name']?.trim().toLowerCase() || '';
+          const postalCode = row['Postal Code']?.trim().toLowerCase() || '';
+          const address = row['Street Address']?.trim().toLowerCase() || '';
+          const city = row['City']?.trim().toLowerCase() || '';
+          const companyName = row['Company name']?.trim().toLowerCase() || '';
+
+          // Skip if domain contains .nz
+          if (domain.includes('.nz')) return;
+          // Skip if postcode is 'International'
+          if (postalCode === 'international') return;
+          // Skip if address or city contains NZ locations
+          if (
+            address.includes('auckland') ||
+            address.includes('rototuna') ||
+            address.includes('christchurch') ||
+            address.includes('hamilton') ||
+            city.includes('auckland') ||
+            city.includes('rototuna') ||
+            city.includes('christchurch') ||
+            city.includes('hamilton')
+          ) return;
+          // Skip if company name contains NZ indicators
+          if (
+            companyName.includes('auckland') ||
+            companyName.includes(' nz') ||
+            companyName.includes('(nz)') ||
+            companyName.includes('new zealand') ||
+            companyName.includes('harcourts corporate nz') ||
+            companyName.includes('eves real estate') ||
+            companyName.includes('staywell property management') ||
+            companyName.includes('pure rental nz') ||
+            companyName.includes('my agent')
+          ) return;
+
           const rawLat = parseFloat(row['Latitude']);
           const rawLong = parseFloat(row['Longitude']);
           const postcode = row['Postal Code']?.trim();
@@ -146,9 +181,9 @@ async function loadCompaniesFromCSV(
 export async function loadCompanies(
   postcodes: Record<string, PostcodeData>
 ): Promise<CompanyStore> {
-  // Try Supabase first
+  // Try Supabase first (pass postcodes for coordinate fallback)
   try {
-    const supabaseResult = await loadCompaniesFromSupabase();
+    const supabaseResult = await loadCompaniesFromSupabase(postcodes);
     if (supabaseResult && supabaseResult.stats.total > 0) {
       console.log(`Loaded ${supabaseResult.stats.total} companies from Supabase`);
       return supabaseResult;

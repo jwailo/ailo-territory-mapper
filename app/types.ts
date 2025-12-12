@@ -231,18 +231,14 @@ export const DEFAULT_COMPANY_FILTERS: CompanyFilters = {
   search: '',
 };
 
-// Check if a company is an Ailo customer based on lifecycle stage and phase
-export function isAiloCustomer(company: CompanyData): boolean {
-  // If lifecycle stage is 'Customer', they're always an Ailo customer
-  if (company.lifecycleStage === 'Customer') {
-    return true;
-  }
+// Phases that indicate an agency is an Ailo customer
+const CUSTOMER_PHASES = ['Onboarding', 'Maturity', 'Handover', 'Adoption'];
 
-  // Otherwise check the phase field
+// Check if a company is an Ailo customer based on phase
+export function isAiloCustomer(company: CompanyData): boolean {
   const phase = company.phase?.trim();
   if (!phase) return false;
-  const excludedPhases = ['Churned', 'Sold Business'];
-  return !excludedPhases.includes(phase);
+  return CUSTOMER_PHASES.includes(phase);
 }
 
 // Filter companies based on filter criteria
