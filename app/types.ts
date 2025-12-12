@@ -11,11 +11,32 @@ export interface PostcodeData {
 
 export interface PostcodeStore {
   postcodes: Record<string, PostcodeData>;
+  boundaries: PostcodeBoundaryStore;
   stats: {
     total: number;
     assigned: number;
     unassigned: number;
   };
+}
+
+// GeoJSON types for postcode boundaries
+export interface PostcodeBoundaryFeature {
+  type: 'Feature';
+  geometry: {
+    type: 'Polygon' | 'MultiPolygon';
+    coordinates: number[][][] | number[][][][];
+  };
+  properties: {
+    POA: string; // Postcode number (e.g., "2000")
+    Name: string;
+    'Area Sqr K': number;
+  };
+}
+
+export interface PostcodeBoundaryStore {
+  // Keyed by postcode (e.g., "2000") - NOT postcode-state
+  features: Record<string, PostcodeBoundaryFeature>;
+  loaded: boolean;
 }
 
 export interface RawCSVRow {
