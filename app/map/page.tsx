@@ -282,10 +282,15 @@ export default function MapPage() {
         ).length
       : 0;
     const filteredPUM = filteredCompanies.reduce((sum, c) => sum + (c.pum || 0), 0);
+    // Count companies with valid lat/long that can be displayed on the map
+    const mappableCount = filteredCompanies.filter(
+      (c) => c.lat !== undefined && c.long !== undefined && c.lat !== null && c.long !== null
+    ).length;
     return {
       filteredCount: filteredCompanies.length,
       totalCount,
       filteredPUM,
+      mappableCount,
     };
   }, [companyData, filteredCompanies, selectedState]);
 
@@ -911,6 +916,7 @@ export default function MapPage() {
                       filteredCount={filteredStats.filteredCount}
                       totalCount={filteredStats.totalCount}
                       filteredPUM={filteredStats.filteredPUM}
+                      mappableCount={filteredStats.mappableCount}
                     />
                   </div>
                   <div className="lg:col-span-1 space-y-3">
