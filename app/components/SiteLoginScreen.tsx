@@ -40,7 +40,7 @@ export default function SiteLoginScreen({ onAuthenticated }: SiteLoginScreenProp
             className="mx-auto mb-4"
             style={{ width: '180px', height: 'auto' }}
           />
-          <p className="text-gray-400 text-lg">Ailo Sales Enablement Tool</p>
+          <p className="text-gray-400 text-lg">Ailo Sales Enablement Toolkit</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

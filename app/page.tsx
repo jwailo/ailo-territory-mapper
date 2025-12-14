@@ -415,7 +415,7 @@ export default function Home() {
               alt="ASET"
               style={{ height: '45px', width: 'auto' }}
             />
-            <span className="text-[10px] text-white/50 tracking-wide mt-1">Ailo Sales Enablement Tool</span>
+            <span className="text-[10px] text-white/50 tracking-wide mt-1">Ailo Sales Enablement Toolkit</span>
           </div>
           <div className="flex items-center gap-3">
             {currentUser && (

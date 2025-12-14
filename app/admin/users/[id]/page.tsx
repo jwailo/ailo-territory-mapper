@@ -3,7 +3,7 @@
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Plus, Trash2, X, Save, Music, Image, MessageSquareQuote, Heart, Upload, Loader2 } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, X, Save, Music, Image, MessageSquareQuote, Heart, Upload, Loader2, ShieldCheck } from 'lucide-react';
 import { useRef } from 'react';
 import { getCurrentUser } from '../../../utils/auth';
 import { supabase } from '../../../utils/supabase';
@@ -53,6 +53,9 @@ export default function UserPersonalisationPage({ params }: { params: Promise<{ 
   const [newMusicArtist, setNewMusicArtist] = useState('');
   const [newTvShow, setNewTvShow] = useState('');
 
+  // User role state
+  const [userRole, setUserRole] = useState<'ae' | 'admin'>('ae');
+
   // Edit quote modal state
   const [editingQuoteIndex, setEditingQuoteIndex] = useState<number | null>(null);
   const [editQuoteContent, setEditQuoteContent] = useState('');
@@ -93,6 +96,7 @@ export default function UserPersonalisationPage({ params }: { params: Promise<{ 
       }
 
       setUser(userData);
+      setUserRole(userData.role);
 
       // Load user preferences
       const prefs = await getUserPreferences(resolvedParams.id);
@@ -376,12 +380,32 @@ export default function UserPersonalisationPage({ params }: { params: Promise<{ 
     const result = await saveUserPreferences(user.id, prefsToSave);
     console.log('DEBUG handleSave - save result:', result);
 
-    if (result.success) {
-      setSuccess('Preferences saved successfully!');
-      setTimeout(() => setSuccess(''), 3000);
-    } else {
+    if (!result.success) {
       setError(result.error || 'Failed to save preferences');
+      setSaving(false);
+      return;
     }
+
+    // Save user role to users table if it changed
+    if (userRole !== user.role) {
+      const { error: roleError } = await supabase
+        .from('users')
+        .update({ role: userRole })
+        .eq('id', user.id);
+
+      if (roleError) {
+        console.error('Error updating role:', roleError);
+        setError('Preferences saved but failed to update user role');
+        setSaving(false);
+        return;
+      }
+
+      // Update local user state
+      setUser({ ...user, role: userRole });
+    }
+
+    setSuccess('All changes saved successfully!');
+    setTimeout(() => setSuccess(''), 3000);
     setSaving(false);
   };
 
@@ -448,6 +472,33 @@ export default function UserPersonalisationPage({ params }: { params: Promise<{ 
         )}
 
         <div className="space-y-8">
+          {/* User Role Section */}
+          <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-10 w-10 bg-[#EE0B4F]/10 rounded-lg flex items-center justify-center">
+                <ShieldCheck className="h-5 w-5 text-[#EE0B4F]" />
+              </div>
+              <h2 className="text-xl font-semibold text-gray-900">User Role</h2>
+            </div>
+            <div>
+              <label htmlFor="user-role" className="block text-sm font-medium text-gray-700 mb-1">
+                Account Type
+              </label>
+              <select
+                id="user-role"
+                value={userRole}
+                onChange={(e) => setUserRole(e.target.value as 'ae' | 'admin')}
+                className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EE0B4F] focus:border-[#EE0B4F] bg-white"
+              >
+                <option value="ae">AE (Account Executive)</option>
+                <option value="admin">Admin</option>
+              </select>
+              <p className="mt-2 text-xs text-gray-500">
+                Admins can manage users and access the admin panel. AEs have standard access.
+              </p>
+            </div>
+          </section>
+
           {/* Profile Photo Section */}
           <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div className="flex items-center gap-3 mb-4">
