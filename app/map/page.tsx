@@ -920,17 +920,20 @@ export default function MapPage() {
                           Map Layers
                         </div>
                         {/* View Territories Toggle */}
-                        <label className="flex items-center gap-3 cursor-pointer">
+                        <label className={`flex items-center gap-3 ${selectedState === 'ALL' ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
                           <input
                             type="checkbox"
                             checked={showTerritories}
                             onChange={(e) => setShowTerritories(e.target.checked)}
-                            className="h-4 w-4 text-blue-500 focus:ring-blue-500 border-gray-300 rounded accent-blue-500"
+                            disabled={selectedState === 'ALL'}
+                            className="h-4 w-4 text-blue-500 focus:ring-blue-500 border-gray-300 rounded accent-blue-500 disabled:opacity-50"
                           />
                           <div>
-                            <span className="text-sm font-medium text-gray-800">Show Territories</span>
+                            <span className={`text-sm font-medium ${selectedState === 'ALL' ? 'text-gray-500' : 'text-gray-800'}`}>Show Territories</span>
                             <p className="text-xs text-gray-500">
-                              {Object.keys(territories).length} territor{Object.keys(territories).length !== 1 ? 'ies' : 'y'} defined
+                              {selectedState === 'ALL'
+                                ? '(Single state needs to be selected)'
+                                : `${Object.keys(territories).length} territor${Object.keys(territories).length !== 1 ? 'ies' : 'y'} defined`}
                             </p>
                           </div>
                         </label>
