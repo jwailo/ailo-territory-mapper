@@ -75,10 +75,16 @@ interface MapProps {
 // Component to handle map view changes when state changes
 function MapViewController({ selectedState }: { selectedState: AustralianState }) {
   const map = useMap();
+  const previousStateRef = useRef<AustralianState>(selectedState);
 
   useEffect(() => {
-    const bounds = STATE_BOUNDS[selectedState];
-    map.setView(bounds.center, bounds.zoom);
+    // Only change view when selectedState actually changes, not on initial mount
+    // or when other props cause re-renders (like after saving territory assignments)
+    if (previousStateRef.current !== selectedState) {
+      const bounds = STATE_BOUNDS[selectedState];
+      map.setView(bounds.center, bounds.zoom);
+      previousStateRef.current = selectedState;
+    }
   }, [selectedState, map]);
 
   return null;
