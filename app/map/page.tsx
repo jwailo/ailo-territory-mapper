@@ -111,7 +111,6 @@ export default function MapPage() {
   const [territoryCounts, setTerritoryCounts] = useState<Record<string, number>>({});
   const [clickToAssign, setClickToAssign] = useState(false);
   const [showUnassignedOnly, setShowUnassignedOnly] = useState(false);
-  const [updateKey, setUpdateKey] = useState(0);
   const [stateStats, setStateStats] = useState<{
     total: number;
     assigned: number;
@@ -405,7 +404,7 @@ export default function MapPage() {
     if (data && Object.keys(territories).length > 0) {
       saveToLocalStorage(territories, data.postcodes);
     }
-  }, [territories, data, updateKey]);
+  }, [territories, data]);
 
   const updateStats = useCallback(() => {
     if (data) {
@@ -416,7 +415,6 @@ export default function MapPage() {
         unassigned: stats.unassigned,
       });
       setTerritoryCounts(stats.territoryCounts);
-      setUpdateKey((k) => k + 1);
 
       // Update company territories and PUM when postcodes change
       if (companyData) {
@@ -1117,7 +1115,6 @@ export default function MapPage() {
           {/* Map Container */}
           <div className="flex-1 relative">
             <Map
-              key={updateKey}
               data={data}
               territories={territories}
               boundaries={boundaries}
