@@ -62,6 +62,8 @@ interface MapProps {
   complianceZones: ComplianceZone[];
   showComplianceZones: boolean;
   complianceDrawEnabled: boolean;
+  // Territory visibility in view mode
+  showTerritories?: boolean;
   onComplianceZoneCreated: (polygon: number[][]) => void;
   onComplianceZoneDeleted: (zoneId: string) => void;
   // Callbacks
@@ -306,6 +308,7 @@ export default function Map({
   complianceZones,
   showComplianceZones,
   complianceDrawEnabled,
+  showTerritories,
   onComplianceZoneCreated,
   onComplianceZoneDeleted,
   onAssignment,
@@ -402,7 +405,7 @@ export default function Map({
         territories={territories}
         boundaries={boundaries}
         selectedState={selectedState}
-        visible={!isViewMode}
+        visible={!isViewMode || !!showTerritories}
       />
 
       {/* Only show postcodes in admin mode */}

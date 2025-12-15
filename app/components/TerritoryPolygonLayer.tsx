@@ -1,9 +1,10 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import { GeoJSON } from 'react-leaflet';
 import * as turf from '@turf/turf';
-import type { Feature, FeatureCollection, Polygon, MultiPolygon } from 'geojson';
+import type { Feature, FeatureCollection, Polygon, MultiPolygon, GeoJsonProperties } from 'geojson';
+import type { Layer } from 'leaflet';
 import { PostcodeStore, Territory, PostcodeData, PostcodeBoundaryStore, AustralianState } from '../types';
 
 // States that are combined for territory polygon display
@@ -149,6 +150,23 @@ export default function TerritoryPolygonLayer({
     return polygons;
   }, [postcodes, territories, boundaries, selectedState, visible]);
 
+  // Create tooltip binding function for each territory
+  // Must be defined before early return to comply with React hooks rules
+  const createOnEachFeature = useCallback((territoryName: string, color: string) => {
+    return (feature: Feature<Polygon | MultiPolygon, GeoJsonProperties>, layer: Layer) => {
+      layer.bindTooltip(
+        `<div style="text-align: center; padding: 2px 6px;">
+          <strong style="font-size: 14px; color: ${color};">${territoryName}</strong>
+        </div>`,
+        {
+          sticky: true,
+          direction: 'auto',
+          className: 'territory-tooltip',
+        }
+      );
+    };
+  }, []);
+
   if (!visible || territoryPolygons.length === 0) {
     return null;
   }
@@ -173,6 +191,7 @@ export default function TerritoryPolygonLayer({
                 opacity: 0.8,
                 weight: 1,
               }}
+              onEachFeature={createOnEachFeature(polygon.territoryName, polygon.color)}
             />
           );
         }
@@ -190,6 +209,7 @@ export default function TerritoryPolygonLayer({
                 opacity: 0.6,
                 weight: 2,
               }}
+              onEachFeature={createOnEachFeature(polygon.territoryName, polygon.color)}
             />
           );
         }

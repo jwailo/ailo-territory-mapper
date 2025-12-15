@@ -134,6 +134,9 @@ export default function MapPage() {
   const [showComplianceZones, setShowComplianceZones] = useState(false);
   const [complianceDrawEnabled, setComplianceDrawEnabled] = useState(false);
 
+  // Territory visibility state (for view mode)
+  const [showTerritories, setShowTerritories] = useState(false);
+
   // Postcode boundary state (for territory polygon snapping)
   const [boundaries, setBoundaries] = useState<PostcodeBoundaryStore>({
     features: {},
@@ -722,10 +725,12 @@ export default function MapPage() {
     }
   }, [data, companyData, territories, selectedState]);
 
-  // Load postcode boundaries when state changes and in admin mode
+  // Load postcode boundaries when state changes and (in admin mode OR showTerritories enabled)
   useEffect(() => {
-    // Only load boundaries when in admin mode and a specific state is selected
-    if (appMode !== 'admin' || selectedState === 'ALL') {
+    // Determine if boundaries are needed
+    const needsBoundaries = (appMode === 'admin' || showTerritories) && selectedState !== 'ALL';
+
+    if (!needsBoundaries) {
       // Clear boundaries when not needed
       if (boundaries.loadedState !== null) {
         setBoundaries({ features: {}, loadedState: null });
@@ -742,7 +747,7 @@ export default function MapPage() {
     loadPostcodeBoundaries(selectedState).then((result) => {
       setBoundaries(result);
     });
-  }, [appMode, selectedState, boundaries.loadedState]);
+  }, [appMode, selectedState, boundaries.loadedState, showTerritories]);
 
   // Show nothing while checking auth status
   if (!authChecked) {
@@ -909,8 +914,27 @@ export default function MapPage() {
                         filteredPUM={filteredStats.filteredPUM}
                         mappableCount={filteredStats.mappableCount}
                       />
-                      {/* Compliance Zones Toggle */}
-                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                      {/* Map View Options */}
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-3">
+                        <div className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                          Map Layers
+                        </div>
+                        {/* View Territories Toggle */}
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={showTerritories}
+                            onChange={(e) => setShowTerritories(e.target.checked)}
+                            className="h-4 w-4 text-blue-500 focus:ring-blue-500 border-gray-300 rounded accent-blue-500"
+                          />
+                          <div>
+                            <span className="text-sm font-medium text-gray-800">Show Territories</span>
+                            <p className="text-xs text-gray-500">
+                              {Object.keys(territories).length} territor{Object.keys(territories).length !== 1 ? 'ies' : 'y'} defined
+                            </p>
+                          </div>
+                        </label>
+                        {/* Compliance Zones Toggle */}
                         <label className="flex items-center gap-3 cursor-pointer">
                           <input
                             type="checkbox"
@@ -1106,6 +1130,7 @@ export default function MapPage() {
               complianceZones={complianceZones}
               showComplianceZones={showComplianceZones || complianceDrawEnabled}
               complianceDrawEnabled={complianceDrawEnabled}
+              showTerritories={showTerritories}
               onComplianceZoneCreated={handleComplianceZoneCreated}
               onComplianceZoneDeleted={handleComplianceZoneDeleted}
               onAssignment={handleAssignment}
