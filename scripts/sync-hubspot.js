@@ -13,6 +13,9 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const HUBSPOT_ACCESS_TOKEN = process.env.HUBSPOT_ACCESS_TOKEN;
 
+// Force full sync mode (set via environment or command line)
+const FORCE_FULL_SYNC = process.env.FORCE_FULL_SYNC === 'true' || process.argv.includes('--full');
+
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY || !HUBSPOT_ACCESS_TOKEN) {
   console.error('Missing required environment variables. Check scripts/.env');
   process.exit(1);
@@ -139,7 +142,93 @@ async function fetchOwners() {
   return owners;
 }
 
-async function fetchAllCompanies() {
+// Fetch the last sync timestamp from Supabase
+async function getLastSyncTimestamp() {
+  const { data, error } = await supabase
+    .from('sync_metadata')
+    .select('last_sync')
+    .eq('sync_type', 'hubspot')
+    .single();
+
+  if (error) {
+    // Table might not exist yet, or no record found
+    if (error.code === '42P01' || error.code === 'PGRST116') {
+      console.log('No previous sync found or sync_metadata table not created yet');
+      console.log('For incremental sync, create the sync_metadata table in Supabase Dashboard:');
+      console.log('  CREATE TABLE sync_metadata (sync_type TEXT PRIMARY KEY, last_sync TIMESTAMPTZ NOT NULL, updated_at TIMESTAMPTZ DEFAULT NOW());');
+    }
+    return null;
+  }
+
+  if (!data) {
+    console.log('No previous sync timestamp found, will do full sync');
+    return null;
+  }
+
+  return data.last_sync;
+}
+
+// Update the last sync timestamp
+async function updateLastSyncTimestamp(timestamp) {
+  const { error } = await supabase
+    .from('sync_metadata')
+    .upsert({
+      sync_type: 'hubspot',
+      last_sync: timestamp,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'sync_type' });
+
+  if (error) {
+    // If table doesn't exist, just log and continue (full sync will happen next time)
+    if (error.code === '42P01') {
+      console.log('Note: sync_metadata table not found. Create it for incremental sync support.');
+    } else {
+      console.error('Failed to update sync timestamp:', error.message);
+    }
+  } else {
+    console.log('Sync timestamp updated successfully');
+  }
+}
+
+// Fetch existing companies from Supabase to check for existing coordinates
+async function fetchExistingCompanies() {
+  console.log('Fetching existing companies from Supabase...');
+  const existing = {};
+
+  let offset = 0;
+  const limit = 1000;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('companies')
+      .select('id, latitude, longitude, coord_source')
+      .range(offset, offset + limit - 1);
+
+    if (error) {
+      console.error('Error fetching existing companies:', error.message);
+      break;
+    }
+
+    if (!data || data.length === 0) break;
+
+    for (const company of data) {
+      existing[company.id] = {
+        lat: company.latitude,
+        long: company.longitude,
+        source: company.coord_source
+      };
+    }
+
+    offset += limit;
+    if (data.length < limit) break;
+  }
+
+  console.log(`Found ${Object.keys(existing).length} existing companies in Supabase`);
+  return existing;
+}
+
+// Fetch companies from HubSpot with optional filter for recently updated
+async function fetchCompaniesFromHubSpot(lastSyncTimestamp = null) {
   const companies = [];
   let after = undefined;
 
@@ -159,34 +248,82 @@ async function fetchAllCompanies() {
     'total_pum__planhat_temp_',
     'estimated_pum',
     'estimated_rent_roll__c',
-    'phase'
+    'phase',
+    'hs_lastmodifieddate'
   ];
 
-  console.log('Fetching companies from HubSpot...');
+  // Use search API for filtered queries, basic API for full sync
+  if (lastSyncTimestamp) {
+    console.log(`Fetching companies modified since ${lastSyncTimestamp}...`);
 
-  while (true) {
-    const url = new URL('https://api.hubapi.com/crm/v3/objects/companies');
-    url.searchParams.set('limit', '100');
-    url.searchParams.set('properties', properties.join(','));
-    if (after) url.searchParams.set('after', after);
+    // Use HubSpot Search API to get only recently modified companies
+    while (true) {
+      const searchBody = {
+        filterGroups: [{
+          filters: [{
+            propertyName: 'hs_lastmodifieddate',
+            operator: 'GTE',
+            value: new Date(lastSyncTimestamp).getTime()
+          }]
+        }],
+        properties,
+        limit: 100,
+        ...(after && { after })
+      };
 
-    const response = await fetch(url, {
-      headers: { 'Authorization': `Bearer ${HUBSPOT_ACCESS_TOKEN}` }
-    });
+      const response = await fetch('https://api.hubapi.com/crm/v3/objects/companies/search', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${HUBSPOT_ACCESS_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(searchBody)
+      });
 
-    if (!response.ok) {
-      throw new Error(`HubSpot API error: ${response.status}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HubSpot Search API error: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      companies.push(...data.results);
+
+      console.log(`Fetched ${companies.length} modified companies...`);
+
+      if (data.paging?.next?.after) {
+        after = data.paging.next.after;
+      } else {
+        break;
+      }
     }
+  } else {
+    // Full sync - use basic API (faster for bulk)
+    console.log('Fetching all companies from HubSpot (full sync)...');
 
-    const data = await response.json();
-    companies.push(...data.results);
+    while (true) {
+      const url = new URL('https://api.hubapi.com/crm/v3/objects/companies');
+      url.searchParams.set('limit', '100');
+      url.searchParams.set('properties', properties.join(','));
+      if (after) url.searchParams.set('after', after);
 
-    console.log(`Fetched ${companies.length} companies...`);
+      const response = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${HUBSPOT_ACCESS_TOKEN}` }
+      });
 
-    if (data.paging?.next?.after) {
-      after = data.paging.next.after;
-    } else {
-      break;
+      if (!response.ok) {
+        throw new Error(`HubSpot API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      companies.push(...data.results);
+
+      console.log(`Fetched ${companies.length} companies...`);
+
+      if (data.paging?.next?.after) {
+        after = data.paging.next.after;
+      } else {
+        break;
+      }
     }
   }
 
@@ -233,8 +370,9 @@ function getPostcodeCentroid(postcode) {
   return null;
 }
 
-async function getCoordinates(props) {
-  // Use existing coordinates if available
+// Optimized: Check existing coordinates first, skip geocoding if already have good data
+async function getCoordinates(props, existingCoords) {
+  // 1. Use HubSpot coordinates if available (always prefer fresh data)
   if (props.latitude && props.longitude) {
     const lat = parseFloat(props.latitude);
     const long = parseFloat(props.longitude);
@@ -243,7 +381,13 @@ async function getCoordinates(props) {
     }
   }
 
-  // Try geocoding from address
+  // 2. If we already have geocoded coordinates in Supabase, reuse them (skip expensive API call)
+  if (existingCoords && existingCoords.lat && existingCoords.long &&
+      (existingCoords.source === 'geocoded' || existingCoords.source === 'hubspot')) {
+    return { lat: existingCoords.lat, long: existingCoords.long, source: existingCoords.source };
+  }
+
+  // 3. Try geocoding from address (only for new companies or those without coords)
   const geocoded = await geocodeAddress(
     props.address,
     props.city,
@@ -257,7 +401,7 @@ async function getCoordinates(props) {
     return geocoded;
   }
 
-  // Fall back to postcode centroid
+  // 4. Fall back to postcode centroid
   if (props.zip) {
     const centroid = getPostcodeCentroid(props.zip);
     if (centroid) return centroid;
@@ -297,29 +441,9 @@ async function uploadBatch(batch, batchNumber, totalBatches) {
   return { success: batch.length, errors: 0 };
 }
 
-// Note: syncToSupabase kept for potential future use (batch sync alternative)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function syncToSupabase(companies) {
-  console.log(`Syncing ${companies.length} companies to Supabase...`);
-
-  const batchSize = 100;
-  let successCount = 0;
-  let errorCount = 0;
-
-  for (let i = 0; i < companies.length; i += batchSize) {
-    const batch = companies.slice(i, i + batchSize);
-    const batchNumber = Math.floor(i / batchSize) + 1;
-    const totalBatches = Math.ceil(companies.length / batchSize);
-
-    const result = await uploadBatch(batch, batchNumber, totalBatches);
-    successCount += result.success;
-    errorCount += result.errors;
-  }
-
-  console.log(`\nSync summary: ${successCount} succeeded, ${errorCount} failed`);
-}
-
 async function main() {
+  const syncStartTime = new Date().toISOString();
+
   console.log('Starting HubSpot sync...');
   console.log('========================');
 
@@ -332,9 +456,26 @@ async function main() {
   // Fetch owners for name mapping
   const owners = await fetchOwners();
 
-  // Fetch all companies from HubSpot
-  let hubspotCompanies = await fetchAllCompanies();
-  console.log(`Found ${hubspotCompanies.length} companies in HubSpot`);
+  // Fetch existing companies from Supabase (for coordinate reuse)
+  const existingCompanies = await fetchExistingCompanies();
+
+  // Check for last sync timestamp (for incremental sync)
+  let lastSyncTimestamp = null;
+  if (!FORCE_FULL_SYNC) {
+    lastSyncTimestamp = await getLastSyncTimestamp();
+  } else {
+    console.log('FORCE_FULL_SYNC enabled - doing full sync');
+  }
+
+  // Fetch companies from HubSpot (incremental or full)
+  let hubspotCompanies = await fetchCompaniesFromHubSpot(lastSyncTimestamp);
+  console.log(`Found ${hubspotCompanies.length} companies to sync`);
+
+  if (hubspotCompanies.length === 0) {
+    console.log('No companies to sync. Updating timestamp and exiting.');
+    await updateLastSyncTimestamp(syncStartTime);
+    return;
+  }
 
   // TEST MODE: Set to a number to limit companies for testing, or null/0 for full sync
   const TEST_LIMIT = null;
@@ -353,6 +494,7 @@ async function main() {
   let hubspotCoordCount = 0;
   let postcodeCount = 0;
   let missingCount = 0;
+  let reusedCoordsCount = 0;
 
   const totalBatches = Math.ceil(hubspotCompanies.length / BATCH_SIZE);
 
@@ -360,16 +502,30 @@ async function main() {
     const company = hubspotCompanies[i];
     const props = company.properties;
 
-    const coords = await getCoordinates(props);
+    // Get existing coordinates for this company
+    const existingCoords = existingCompanies[company.id];
+    const coords = await getCoordinates(props, existingCoords);
 
     switch (coords.source) {
-      case 'hubspot': hubspotCoordCount++; break;
-      case 'geocoded':
-        geocodeCount++;
-        console.log(`Geocoded (${geocodeCount}): ${props.name}`);
+      case 'hubspot':
+        hubspotCoordCount++;
         break;
-      case 'postcode': postcodeCount++; break;
-      case 'missing': missingCount++; break;
+      case 'geocoded':
+        // Check if we reused existing geocoded coords
+        if (existingCoords && existingCoords.source === 'geocoded' &&
+            existingCoords.lat === coords.lat && existingCoords.long === coords.long) {
+          reusedCoordsCount++;
+        } else {
+          geocodeCount++;
+          console.log(`Geocoded (${geocodeCount}): ${props.name}`);
+        }
+        break;
+      case 'postcode':
+        postcodeCount++;
+        break;
+      case 'missing':
+        missingCount++;
+        break;
     }
 
     batch.push({
@@ -410,14 +566,19 @@ async function main() {
     totalErrors += result.errors;
   }
 
+  // Update last sync timestamp
+  await updateLastSyncTimestamp(syncStartTime);
+
   console.log('========================');
   console.log('Sync complete!');
   console.log(`Total processed: ${totalProcessed}`);
   console.log(`Uploaded: ${totalUploaded}, Errors: ${totalErrors}`);
   console.log(`HubSpot coords: ${hubspotCoordCount}`);
-  console.log(`Geocoded: ${geocodeCount}`);
+  console.log(`Newly geocoded: ${geocodeCount}`);
+  console.log(`Reused existing coords: ${reusedCoordsCount}`);
   console.log(`Postcode fallback: ${postcodeCount}`);
   console.log(`Missing: ${missingCount}`);
+  console.log(`Sync type: ${lastSyncTimestamp ? 'incremental' : 'full'}`);
 }
 
 main().catch(console.error);
