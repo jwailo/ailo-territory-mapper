@@ -467,9 +467,33 @@ async function main() {
     console.log('FORCE_FULL_SYNC enabled - doing full sync');
   }
 
+  // Log the last_sync timestamp being used
+  console.log('========================');
+  console.log('SYNC CONFIGURATION:');
+  if (lastSyncTimestamp) {
+    console.log(`  Last sync timestamp: ${lastSyncTimestamp}`);
+    console.log(`  Fetching companies modified since: ${new Date(lastSyncTimestamp).toLocaleString('en-AU', { timeZone: 'Australia/Sydney' })} AEDT`);
+  } else {
+    console.log('  Last sync timestamp: NONE (full sync)');
+  }
+  console.log('========================');
+
   // Fetch companies from HubSpot (incremental or full)
   let hubspotCompanies = await fetchCompaniesFromHubSpot(lastSyncTimestamp);
-  console.log(`Found ${hubspotCompanies.length} companies to sync`);
+
+  // Log how many companies were fetched and list first 20 names
+  console.log('========================');
+  console.log('COMPANIES TO SYNC:');
+  console.log(`  Total companies fetched from HubSpot: ${hubspotCompanies.length}`);
+  if (hubspotCompanies.length > 0) {
+    const namesToShow = hubspotCompanies.slice(0, 20).map(c => c.properties.name || '(unnamed)');
+    console.log(`  First ${Math.min(20, hubspotCompanies.length)} company names:`);
+    namesToShow.forEach((name, i) => console.log(`    ${i + 1}. ${name}`));
+    if (hubspotCompanies.length > 20) {
+      console.log(`    ... and ${hubspotCompanies.length - 20} more`);
+    }
+  }
+  console.log('========================');
 
   if (hubspotCompanies.length === 0) {
     console.log('No companies to sync. Updating timestamp and exiting.');
@@ -570,15 +594,23 @@ async function main() {
   await updateLastSyncTimestamp(syncStartTime);
 
   console.log('========================');
-  console.log('Sync complete!');
-  console.log(`Total processed: ${totalProcessed}`);
-  console.log(`Uploaded: ${totalUploaded}, Errors: ${totalErrors}`);
-  console.log(`HubSpot coords: ${hubspotCoordCount}`);
-  console.log(`Newly geocoded: ${geocodeCount}`);
-  console.log(`Reused existing coords: ${reusedCoordsCount}`);
-  console.log(`Postcode fallback: ${postcodeCount}`);
-  console.log(`Missing: ${missingCount}`);
-  console.log(`Sync type: ${lastSyncTimestamp ? 'incremental' : 'full'}`);
+  console.log('SYNC COMPLETE!');
+  console.log('========================');
+  console.log('SUMMARY:');
+  console.log(`  Total processed: ${totalProcessed}`);
+  console.log(`  Uploaded: ${totalUploaded}, Errors: ${totalErrors}`);
+  console.log(`  HubSpot coords: ${hubspotCoordCount}`);
+  console.log(`  Newly geocoded: ${geocodeCount}`);
+  console.log(`  Reused existing coords: ${reusedCoordsCount}`);
+  console.log(`  Postcode fallback: ${postcodeCount}`);
+  console.log(`  Missing: ${missingCount}`);
+  console.log(`  Sync type: ${lastSyncTimestamp ? 'incremental' : 'full'}`);
+  console.log('========================');
+  console.log('TIMESTAMPS:');
+  console.log(`  Previous last_sync: ${lastSyncTimestamp || 'NONE'}`);
+  console.log(`  New last_sync: ${syncStartTime}`);
+  console.log(`  New last_sync (AEDT): ${new Date(syncStartTime).toLocaleString('en-AU', { timeZone: 'Australia/Sydney' })}`);
+  console.log('========================');
 }
 
 main().catch(console.error);
