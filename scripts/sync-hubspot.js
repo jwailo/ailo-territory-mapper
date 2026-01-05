@@ -410,6 +410,133 @@ async function getCoordinates(props, existingCoords) {
   return { lat: null, long: null, source: 'missing' };
 }
 
+// Fetch all HubSpot company IDs (lightweight - no properties)
+async function fetchAllHubSpotCompanyIds() {
+  console.log('Fetching all HubSpot company IDs for deletion check...');
+  const ids = new Set();
+  let after = undefined;
+
+  while (true) {
+    const url = new URL('https://api.hubapi.com/crm/v3/objects/companies');
+    url.searchParams.set('limit', '100');
+    url.searchParams.set('properties', ''); // No properties needed, just IDs
+    if (after) url.searchParams.set('after', after);
+
+    const response = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${HUBSPOT_ACCESS_TOKEN}` }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HubSpot API error fetching IDs: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    for (const company of data.results) {
+      ids.add(company.id);
+    }
+
+    if (ids.size % 1000 === 0) {
+      console.log(`  Fetched ${ids.size} HubSpot company IDs...`);
+    }
+
+    if (data.paging?.next?.after) {
+      after = data.paging.next.after;
+    } else {
+      break;
+    }
+  }
+
+  console.log(`  Total HubSpot company IDs: ${ids.size}`);
+  return ids;
+}
+
+// Fetch all Supabase company IDs and names for deletion comparison
+async function fetchSupabaseCompanyIdsAndNames() {
+  console.log('Fetching Supabase company IDs for deletion check...');
+  const companies = {};
+  let offset = 0;
+  const limit = 1000;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('companies')
+      .select('id, name')
+      .range(offset, offset + limit - 1);
+
+    if (error) {
+      console.error('Error fetching Supabase companies:', error.message);
+      break;
+    }
+
+    if (!data || data.length === 0) break;
+
+    for (const company of data) {
+      companies[company.id] = company.name;
+    }
+
+    offset += limit;
+    if (data.length < limit) break;
+  }
+
+  console.log(`  Total Supabase companies: ${Object.keys(companies).length}`);
+  return companies;
+}
+
+// Delete companies from Supabase that no longer exist in HubSpot
+async function deleteRemovedCompanies(hubspotIds, supabaseCompanies) {
+  console.log('========================');
+  console.log('DELETION CHECK:');
+
+  const supabaseIds = Object.keys(supabaseCompanies);
+  const toDelete = supabaseIds.filter(id => !hubspotIds.has(id));
+
+  console.log(`  Supabase companies: ${supabaseIds.length}`);
+  console.log(`  HubSpot companies: ${hubspotIds.size}`);
+  console.log(`  Companies to delete: ${toDelete.length}`);
+
+  if (toDelete.length === 0) {
+    console.log('  No companies to delete.');
+    console.log('========================');
+    return { deleted: 0, errors: 0 };
+  }
+
+  // Log deleted company names (first 20)
+  const namesToShow = toDelete.slice(0, 20).map(id => supabaseCompanies[id] || `(ID: ${id})`);
+  console.log(`  First ${Math.min(20, toDelete.length)} companies to delete:`);
+  namesToShow.forEach((name, i) => console.log(`    ${i + 1}. ${name}`));
+  if (toDelete.length > 20) {
+    console.log(`    ... and ${toDelete.length - 20} more`);
+  }
+
+  // Delete in batches
+  let deleted = 0;
+  let errors = 0;
+  const BATCH_SIZE = 100;
+
+  for (let i = 0; i < toDelete.length; i += BATCH_SIZE) {
+    const batch = toDelete.slice(i, i + BATCH_SIZE);
+
+    const { error } = await supabase
+      .from('companies')
+      .delete()
+      .in('id', batch);
+
+    if (error) {
+      console.error(`  Delete batch error:`, error.message);
+      errors += batch.length;
+    } else {
+      deleted += batch.length;
+      console.log(`  ✓ Deleted batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(toDelete.length / BATCH_SIZE)} (${batch.length} companies)`);
+    }
+  }
+
+  console.log(`  Deletion complete: ${deleted} deleted, ${errors} errors`);
+  console.log('========================');
+
+  return { deleted, errors };
+}
+
 // Upload a single batch to Supabase
 async function uploadBatch(batch, batchNumber, totalBatches) {
   const { error } = await supabase
@@ -606,10 +733,20 @@ async function main() {
   console.log(`  Missing: ${missingCount}`);
   console.log(`  Sync type: ${lastSyncTimestamp ? 'incremental' : 'full'}`);
   console.log('========================');
+
+  // Check for deleted companies (companies in Supabase that no longer exist in HubSpot)
+  const allHubSpotIds = await fetchAllHubSpotCompanyIds();
+  const supabaseCompaniesForDeletion = await fetchSupabaseCompanyIdsAndNames();
+  const deletionResult = await deleteRemovedCompanies(allHubSpotIds, supabaseCompaniesForDeletion);
+
   console.log('TIMESTAMPS:');
   console.log(`  Previous last_sync: ${lastSyncTimestamp || 'NONE'}`);
   console.log(`  New last_sync: ${syncStartTime}`);
   console.log(`  New last_sync (AEDT): ${new Date(syncStartTime).toLocaleString('en-AU', { timeZone: 'Australia/Sydney' })}`);
+  console.log('========================');
+  console.log('FINAL TOTALS:');
+  console.log(`  Companies synced: ${totalUploaded}`);
+  console.log(`  Companies deleted: ${deletionResult.deleted}`);
   console.log('========================');
 }
 
