@@ -110,6 +110,7 @@ function getTimeBasedGreeting(firstName: string): string {
 // Link item type
 interface LinkItem {
   title: string;
+  description: string;
   icon: LucideIcon;
   href: string;
   internal?: boolean; // true = internal Next.js link, false = external
@@ -137,6 +138,7 @@ const categories: Category[] = [
     links: [
       {
         title: 'Territory Mapper',
+        description: 'Visualise territories on an interactive map with company data from HubSpot.',
         icon: MapPin,
         href: '/map',
         internal: true,
@@ -144,6 +146,7 @@ const categories: Category[] = [
       },
       {
         title: 'True Cost Calculator',
+        description: 'Calculate the true cost of property management for prospects.',
         icon: Calculator,
         href: 'cost-calculator',
         internal: false,
@@ -152,6 +155,7 @@ const categories: Category[] = [
       },
       {
         title: 'Case Study Database',
+        description: 'Browse and search customer success stories and case studies.',
         icon: FolderOpen,
         href: 'case-studies',
         internal: false,
@@ -168,24 +172,28 @@ const categories: Category[] = [
     links: [
       {
         title: 'Slack Guide & Questions',
+        description: 'Guidelines for using Slack channels and asking questions.',
         icon: MessageCircleQuestion,
         href: 'https://docs.google.com/document/d/1oGcmmfPVf_Bkc8PevSRFBsNOYDh_7VjUsKO63ICnvRM/edit?tab=t.0#heading=h.bqmeuzxvajp',
         internal: false,
       },
       {
         title: 'Org Chart',
+        description: 'View the Ailo organisational structure and team hierarchy.',
         icon: Network,
         href: 'https://ailohq.bamboohr.com/employees/orgchart.php',
         internal: false,
       },
       {
         title: '2026 Go Live Schedule',
+        description: 'Upcoming customer go-live dates and implementation timeline.',
         icon: CalendarClock,
         href: 'https://docs.google.com/spreadsheets/d/1PXpDo1FvxjZmKqG434rj1xgcWq1NmD-nHAjqnOMKE4g/edit?gid=481126026#gid=481126026',
         internal: false,
       },
       {
         title: '2026 MECCA Event Calendar',
+        description: 'Scheduled MECCA events and sales activities for 2026.',
         icon: CalendarDays,
         href: '#',
         internal: false,
@@ -193,6 +201,7 @@ const categories: Category[] = [
       },
       {
         title: 'Case Study Submission Form',
+        description: 'Submit new customer success stories for the case study database.',
         icon: FileText,
         href: 'https://docs.google.com/forms/d/e/1FAIpQLSdZGKCcjE6C2JBPeJ9DpfBYoQbzIG5Mdsw4vrVCDN6xwxDlLA/viewform',
         internal: false,
@@ -207,24 +216,28 @@ const categories: Category[] = [
     links: [
       {
         title: 'Ailo Sales Procedure Manual',
+        description: 'Complete guide to the Ailo sales process and procedures.',
         icon: BookOpen,
         href: 'https://docs.google.com/document/d/1pKFbbw7DG5UejwGOIlW-Em6ZvGlqvHaiuuHyu_WQKIs/edit?tab=t.0',
         internal: false,
       },
       {
         title: 'Pricing Outline',
+        description: 'Current pricing structure and packaging information.',
         icon: DollarSign,
         href: 'https://docs.google.com/document/d/1gimbrDPvI02J3-kljupuiIDHbknq0uZY9Xp-f0iftGg/edit?tab=t.0#heading=h.o44vkal88k89',
         internal: false,
       },
       {
         title: 'Ailo Meeting Summary GPT',
+        description: 'AI assistant to help summarise sales meetings and calls.',
         icon: Bot,
         href: 'https://chatgpt.com/g/g-692e739f479c8191894b0858445a7fc5-ailo-meeting-summary',
         internal: false,
       },
       {
         title: 'Ailo Accelerate + Sales Playbook',
+        description: 'Accelerate program details and sales playbook strategies.',
         icon: Rocket,
         href: 'https://docs.google.com/document/d/1eXeN-dfBLfsjb3dc9tgQL4ndhXYwt5Q4Y8WEIC_aYnA/edit?tab=t.0#heading=h.y4kxj41p3t4p',
         internal: false,
@@ -239,30 +252,35 @@ const categories: Category[] = [
     links: [
       {
         title: 'True Cost Calculator (Public)',
+        description: 'Public-facing cost calculator to share with prospects.',
         icon: Calculator,
         href: 'https://true-cost-calculator.ailo.io/',
         internal: false,
       },
       {
         title: 'True Cost Industry Benchmark',
+        description: 'Industry benchmark data for property management costs.',
         icon: BarChart3,
         href: 'https://true-cost-industry-benchmark.ailo.io/',
         internal: false,
       },
       {
         title: 'Why Now Video Library',
+        description: 'Videos explaining why now is the right time to switch.',
         icon: Video,
         href: 'https://ailo.io/why-now',
         internal: false,
       },
       {
         title: 'Ailo Overview Video Library',
+        description: 'Product overview and demonstration videos.',
         icon: Video,
         href: 'https://ailo.io/ailo-overview',
         internal: false,
       },
       {
         title: 'Sales Collateral Folder',
+        description: 'Presentations, brochures, and marketing materials.',
         icon: FolderKanban,
         href: 'https://drive.google.com/drive/folders/1lpQq880z8Aco-fg32gvous89HfesjScc?usp=drive_link',
         internal: false,
@@ -277,30 +295,35 @@ const categories: Category[] = [
     links: [
       {
         title: 'Accelerate Landing Page',
+        description: 'Landing page for the Ailo Accelerate program.',
         icon: Rocket,
         href: 'https://ailo.io/accelerate-plan',
         internal: false,
       },
       {
         title: 'Migrating to Ailo',
+        description: 'Information about the migration process for prospects.',
         icon: Plane,
         href: 'https://ailo.io/handbook-migration',
         internal: false,
       },
       {
         title: 'Training & Onboarding',
+        description: 'Training and onboarding resources for new customers.',
         icon: GraduationCap,
         href: 'https://ailo.io/handbook-training-onboarding',
         internal: false,
       },
       {
         title: 'Compliance',
+        description: 'Property compliance features and capabilities.',
         icon: Shield,
         href: 'https://ailo.io/property-managers/property-compliance',
         internal: false,
       },
       {
         title: "What's New",
+        description: 'Latest product updates and feature releases.',
         icon: Sparkles,
         href: 'https://ailo.io/whats-new',
         internal: false,
@@ -315,6 +338,7 @@ const categories: Category[] = [
     links: [
       {
         title: 'Teams vs Permission Sets',
+        description: 'Understanding HubSpot teams and permission configurations.',
         icon: Users,
         href: 'https://drive.google.com/file/d/1eURBLgE4hHH3MUpo1go0KCgF-okCU7C5/view?usp=sharing',
         internal: false,
@@ -323,9 +347,10 @@ const categories: Category[] = [
   },
 ];
 
-// Link tile component - matches existing tool card styling
+// Link tile component - larger vertical card format with original hover/click effects
 function LinkTile({
   title,
+  description,
   icon: Icon,
   href,
   internal,
@@ -333,6 +358,7 @@ function LinkTile({
   onClick,
 }: {
   title: string;
+  description: string;
   icon: LucideIcon;
   href: string;
   internal?: boolean;
@@ -340,12 +366,15 @@ function LinkTile({
   onClick?: () => void;
 }) {
   const [isHovered, setIsHovered] = useState(false);
+  const [isClicked, setIsClicked] = useState(false);
 
   const handleClick = (e: React.MouseEvent) => {
     if (comingSoon) {
       e.preventDefault();
       return;
     }
+    setIsClicked(true);
+    setTimeout(() => setIsClicked(false), 150);
     if (onClick) {
       e.preventDefault();
       onClick();
@@ -359,54 +388,80 @@ function LinkTile({
       className={`group relative block h-full ${comingSoon ? 'cursor-not-allowed' : 'cursor-pointer'}`}
     >
       <div
-        className={`relative h-full overflow-hidden rounded-xl border-2 ${
+        className={`relative flex h-full flex-col overflow-hidden rounded-2xl border-2 bg-white p-6 transition-all duration-300 ${
           comingSoon
             ? 'border-gray-200 bg-gray-50'
-            : 'border-gray-200 bg-white group-hover:border-[#EE0B4F] group-hover:shadow-lg group-hover:shadow-[#EE0B4F]/10 group-hover:-translate-y-0.5'
-        } p-4 transition-all duration-300`}
+            : isClicked
+            ? 'border-[#EE0B4F] shadow-lg shadow-[#EE0B4F]/20 scale-[0.98]'
+            : isHovered
+            ? 'border-[#EE0B4F] shadow-xl shadow-[#EE0B4F]/10 -translate-y-1'
+            : 'border-gray-200 hover:border-[#EE0B4F]'
+        }`}
       >
-        <div className="relative flex items-center gap-3">
-          <div
-            className={`flex h-10 w-10 items-center justify-center rounded-lg transition-all duration-300 ${
-              comingSoon
-                ? 'bg-gray-200'
-                : isHovered
-                ? 'bg-[#EE0B4F]'
-                : 'bg-[#1A1A2E]'
-            }`}
-          >
-            <Icon
-              className={`h-5 w-5 ${comingSoon ? 'text-gray-400' : 'text-white'}`}
-              strokeWidth={1.5}
-            />
-          </div>
+        {/* Icon at top in coloured rounded square */}
+        <div
+          className={`mb-4 flex h-12 w-12 items-center justify-center rounded-xl transition-all duration-300 ${
+            comingSoon
+              ? 'bg-gray-200'
+              : isHovered
+              ? 'bg-[#EE0B4F] scale-110'
+              : 'bg-[#1A1A2E]'
+          }`}
+        >
+          <Icon
+            className={`h-6 w-6 ${comingSoon ? 'text-gray-400' : 'text-white'}`}
+            strokeWidth={1.5}
+          />
+        </div>
 
-          <div className="flex-1 min-w-0">
-            <h3
-              className={`text-sm font-semibold truncate ${
-                comingSoon ? 'text-gray-400' : 'text-gray-900'
+        {/* Title below icon */}
+        <h3
+          className={`text-lg font-bold mb-2 ${
+            comingSoon ? 'text-gray-400' : 'text-gray-900'
+          }`}
+        >
+          {title}
+        </h3>
+
+        {/* Description below title */}
+        <p
+          className={`text-sm leading-relaxed flex-1 ${
+            comingSoon ? 'text-gray-400' : 'text-gray-600'
+          }`}
+        >
+          {comingSoon ? 'Coming Soon' : description}
+        </p>
+
+        {/* Action indicator at bottom */}
+        <div className="mt-4 pt-4 border-t border-gray-100">
+          {!comingSoon && internal && (
+            <span
+              className={`inline-flex items-center gap-1.5 text-sm font-semibold transition-all duration-300 ${
+                isHovered ? 'text-[#EE0B4F]' : 'text-gray-500'
               }`}
             >
-              {title}
-            </h3>
-            {comingSoon && (
-              <span className="text-xs text-gray-400">Coming Soon</span>
-            )}
-          </div>
-
-          {!comingSoon && !internal && (
-            <ExternalLink
-              className={`h-4 w-4 flex-shrink-0 transition-all duration-300 ${
-                isHovered ? 'text-[#EE0B4F]' : 'text-gray-400'
-              }`}
-            />
+              Launch tool
+              <ArrowRight
+                className={`h-4 w-4 transition-all duration-300 ${
+                  isHovered ? 'translate-x-1' : ''
+                }`}
+              />
+            </span>
           )}
-          {!comingSoon && internal && (
-            <ArrowRight
-              className={`h-4 w-4 flex-shrink-0 transition-all duration-300 ${
-                isHovered ? 'text-[#EE0B4F] translate-x-1' : 'text-gray-400'
+          {!comingSoon && !internal && (
+            <span
+              className={`inline-flex items-center gap-1.5 text-sm font-semibold transition-all duration-300 ${
+                isHovered ? 'text-[#EE0B4F]' : 'text-gray-500'
               }`}
-            />
+            >
+              Open link
+              <ExternalLink className="h-4 w-4" />
+            </span>
+          )}
+          {comingSoon && (
+            <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-400">
+              Coming soon
+            </span>
           )}
         </div>
       </div>
@@ -488,16 +543,17 @@ function CategorySection({
         </div>
       )}
 
-      {/* Category Links */}
+      {/* Category Links - 3 per row grid */}
       <div
-        className={`grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 transition-all duration-300 ease-in-out overflow-hidden ${
-          isOpen ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+        className={`grid gap-4 sm:grid-cols-2 lg:grid-cols-3 transition-all duration-300 ease-in-out overflow-hidden ${
+          isOpen ? 'max-h-[4000px] opacity-100' : 'max-h-0 opacity-0'
         }`}
       >
         {category.links.map((link) => (
           <LinkTile
             key={link.title}
             title={link.title}
+            description={link.description}
             icon={link.icon}
             href={link.href}
             internal={link.internal}
