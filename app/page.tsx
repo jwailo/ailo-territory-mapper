@@ -31,7 +31,6 @@ import {
   Shield,
   Sparkles,
   HelpCircle,
-  ExternalLink,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import {
@@ -347,7 +346,7 @@ const categories: Category[] = [
   },
 ];
 
-// Link tile component - larger vertical card format with original hover/click effects
+// Link tile component - exact original ToolCard styling with spinning icon on click
 function LinkTile({
   title,
   description,
@@ -374,10 +373,14 @@ function LinkTile({
       return;
     }
     setIsClicked(true);
-    setTimeout(() => setIsClicked(false), 150);
+    setTimeout(() => {
+      setIsClicked(false);
+      if (onClick) {
+        onClick();
+      }
+    }, 400);
     if (onClick) {
       e.preventDefault();
-      onClick();
     }
   };
 
@@ -388,80 +391,78 @@ function LinkTile({
       className={`group relative block h-full ${comingSoon ? 'cursor-not-allowed' : 'cursor-pointer'}`}
     >
       <div
-        className={`relative flex h-full flex-col overflow-hidden rounded-2xl border-2 bg-white p-6 transition-all duration-300 ${
+        className={`relative h-full overflow-hidden rounded-2xl border-2 bg-white p-8 transition-all duration-300 ${
           comingSoon
             ? 'border-gray-200 bg-gray-50'
-            : isClicked
-            ? 'border-[#EE0B4F] shadow-lg shadow-[#EE0B4F]/20 scale-[0.98]'
-            : isHovered
-            ? 'border-[#EE0B4F] shadow-xl shadow-[#EE0B4F]/10 -translate-y-1'
-            : 'border-gray-200 hover:border-[#EE0B4F]'
+            : 'border-gray-200 group-hover:border-[#EE0B4F] group-hover:shadow-2xl group-hover:shadow-[#EE0B4F]/20 group-hover:-translate-y-1'
         }`}
       >
-        {/* Icon at top in coloured rounded square */}
-        <div
-          className={`mb-4 flex h-12 w-12 items-center justify-center rounded-xl transition-all duration-300 ${
-            comingSoon
-              ? 'bg-gray-200'
-              : isHovered
-              ? 'bg-[#EE0B4F] scale-110'
-              : 'bg-[#1A1A2E]'
-          }`}
-        >
-          <Icon
-            className={`h-6 w-6 ${comingSoon ? 'text-gray-400' : 'text-white'}`}
-            strokeWidth={1.5}
-          />
-        </div>
+        {/* Gradient overlay on hover */}
+        {!comingSoon && (
+          <div className="absolute inset-0 bg-gradient-to-br from-[#EE0B4F]/10 via-transparent to-[#6e8fcb]/10 opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+        )}
 
-        {/* Title below icon */}
-        <h3
-          className={`text-lg font-bold mb-2 ${
-            comingSoon ? 'text-gray-400' : 'text-gray-900'
-          }`}
-        >
-          {title}
-        </h3>
-
-        {/* Description below title */}
-        <p
-          className={`text-sm leading-relaxed flex-1 ${
-            comingSoon ? 'text-gray-400' : 'text-gray-600'
-          }`}
-        >
-          {comingSoon ? 'Coming Soon' : description}
-        </p>
-
-        {/* Action indicator at bottom */}
-        <div className="mt-4 pt-4 border-t border-gray-100">
-          {!comingSoon && internal && (
-            <span
-              className={`inline-flex items-center gap-1.5 text-sm font-semibold transition-all duration-300 ${
-                isHovered ? 'text-[#EE0B4F]' : 'text-gray-500'
+        <div className="relative flex flex-col h-full">
+          {/* Icon with spin animation on click */}
+          <div className="relative mb-6 inline-flex">
+            <div
+              className={`flex h-16 w-16 items-center justify-center rounded-xl ${
+                comingSoon ? 'bg-gray-200' : ''
               }`}
+              style={
+                comingSoon
+                  ? {}
+                  : {
+                      backgroundColor: isClicked || isHovered ? '#EE0B4F' : '#1A1A2E',
+                      transform: isClicked
+                        ? 'scale(1.5) rotate(360deg)'
+                        : isHovered
+                        ? 'scale(1.1)'
+                        : 'scale(1)',
+                      transition: 'all 700ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+                    }
+              }
             >
-              Launch tool
-              <ArrowRight
-                className={`h-4 w-4 transition-all duration-300 ${
-                  isHovered ? 'translate-x-1' : ''
+              <Icon
+                className={`h-8 w-8 transition-all duration-500 ${
+                  comingSoon ? 'text-gray-400' : isClicked ? 'text-white scale-125' : 'text-white'
                 }`}
+                strokeWidth={1.5}
               />
-            </span>
-          )}
-          {!comingSoon && !internal && (
-            <span
-              className={`inline-flex items-center gap-1.5 text-sm font-semibold transition-all duration-300 ${
-                isHovered ? 'text-[#EE0B4F]' : 'text-gray-500'
-              }`}
-            >
-              Open link
-              <ExternalLink className="h-4 w-4" />
-            </span>
-          )}
-          {comingSoon && (
-            <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-400">
-              Coming soon
-            </span>
+            </div>
+          </div>
+
+          {/* Title with animated underline */}
+          <h3 className="mb-3 text-2xl font-bold text-gray-900">
+            {title.split(' ').map((word, i) => (
+              <span
+                key={i}
+                className="inline-block mr-2 transition-all duration-500"
+                style={{
+                  color: comingSoon ? '#9CA3AF' : isClicked ? '#EE0B4F' : 'inherit',
+                  transform: isClicked ? 'translateY(-4px) scale(1.05)' : 'none',
+                  transitionDelay: isClicked ? `${i * 100}ms` : '0ms',
+                }}
+              >
+                {word}
+              </span>
+            ))}
+            {!comingSoon && (
+              <span className="block h-0.5 w-0 bg-[#EE0B4F] transition-all duration-300 group-hover:w-full" />
+            )}
+          </h3>
+
+          {/* Description */}
+          <p className={`mb-6 leading-relaxed flex-1 ${comingSoon ? 'text-gray-400' : 'text-gray-600'}`}>
+            {comingSoon ? 'Coming Soon' : description}
+          </p>
+
+          {/* Launch tool text - appears on hover */}
+          {!comingSoon && (
+            <div className="flex items-center gap-2 text-sm font-semibold text-[#EE0B4F] opacity-0 transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-2">
+              <span>Launch tool</span>
+              <ArrowRight className="h-4 w-4" />
+            </div>
           )}
         </div>
       </div>
@@ -490,7 +491,7 @@ function LinkTile({
   }
 
   return (
-    <a href={href} target="_blank" rel="noopener noreferrer" className="h-full block">
+    <a href={href} target="_blank" rel="noopener noreferrer" onClick={handleClick} className="h-full block">
       {TileContent}
     </a>
   );
