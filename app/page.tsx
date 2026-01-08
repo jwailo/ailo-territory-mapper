@@ -388,7 +388,7 @@ function LinkTile({
     <div
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className={`group relative block h-full ${comingSoon ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+      className={`group relative block h-full pt-1 ${comingSoon ? 'cursor-not-allowed' : 'cursor-pointer'}`}
     >
       <div
         className={`relative h-full overflow-hidden rounded-2xl border-2 bg-white p-8 transition-all duration-300 ${
