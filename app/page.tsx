@@ -1,7 +1,7 @@
 'use client';
 // Force rebuild - deployment test 2025-12-11
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import {
   MapPin,
@@ -31,6 +31,8 @@ import {
   Shield,
   Sparkles,
   HelpCircle,
+  Check,
+  Phone,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import {
@@ -87,6 +89,76 @@ const eveningGreetings = [
   (name: string) => `Evening grind, ${name}! Champions work late!`,
   (name: string) => `Still here, still winning, ${name}!`,
 ];
+
+// Prospecting reminder messages (rotate daily)
+const prospectingMessages = [
+  (name: string) => `Hey ${name}, have you done your prospecting today? The best opportunities come to those who reach out first.`,
+  (name: string) => `${name}, consistency beats intensity. A little prospecting every day goes a long way.`,
+  (name: string) => `${name}, your future self will thank you. Have you made your prospecting calls today?`,
+  (name: string) => `Hey ${name}, the deals you close next month start with the calls you make today. Let's go!`,
+  (name: string) => `${name}, winners prospect daily. Time to add some new leads to the board!`,
+];
+
+// Helper to check if it's after 9:30am Melbourne time
+function isAfterProspectingTime(): boolean {
+  // Get current time in Melbourne timezone
+  const now = new Date();
+  const melbourneTime = new Date(now.toLocaleString('en-US', { timeZone: 'Australia/Melbourne' }));
+  const hours = melbourneTime.getHours();
+  const minutes = melbourneTime.getMinutes();
+
+  // Check if it's after 9:30am
+  return hours > 9 || (hours === 9 && minutes >= 30);
+}
+
+// Helper to get today's date string in Melbourne timezone (for localStorage key)
+function getMelbourneDateString(): string {
+  const now = new Date();
+  return now.toLocaleDateString('en-AU', { timeZone: 'Australia/Melbourne' });
+}
+
+// Helper to get the prospecting message index for today (rotates daily)
+function getProspectingMessageIndex(): number {
+  // Use the day of year to rotate through messages
+  const now = new Date();
+  const start = new Date(now.getFullYear(), 0, 0);
+  const diff = now.getTime() - start.getTime();
+  const oneDay = 1000 * 60 * 60 * 24;
+  const dayOfYear = Math.floor(diff / oneDay);
+  return dayOfYear % prospectingMessages.length;
+}
+
+// Prospecting Reminder Component
+function ProspectingReminder({ firstName, onDismiss }: { firstName: string; onDismiss: () => void }) {
+  const messageIndex = getProspectingMessageIndex();
+  const message = prospectingMessages[messageIndex](firstName);
+
+  return (
+    <div className="absolute top-4 right-4 z-20 max-w-sm animate-in slide-in-from-right duration-300">
+      <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-[#EE0B4F]/20 p-4">
+        <div className="flex items-start gap-3">
+          <div className="flex-shrink-0 h-10 w-10 rounded-full bg-[#EE0B4F]/10 flex items-center justify-center">
+            <Phone className="h-5 w-5 text-[#EE0B4F]" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-gray-900 leading-relaxed">
+              {message}
+            </p>
+          </div>
+        </div>
+        <div className="mt-3 flex justify-end">
+          <button
+            onClick={onDismiss}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#EE0B4F] hover:bg-[#d10a47] text-white text-sm font-medium transition-colors"
+          >
+            <Check className="h-4 w-4" />
+            <span>Done</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // Time-based greeting helper - returns a random sales-focused greeting
 function getTimeBasedGreeting(firstName: string): string {
@@ -650,6 +722,9 @@ export default function Home() {
     return initial;
   });
 
+  // Prospecting reminder state
+  const [showProspectingReminder, setShowProspectingReminder] = useState(false);
+
   const siteAuthenticated = authState.authenticated;
   const authChecked = authState.checked;
   const currentUser = authState.user;
@@ -687,6 +762,30 @@ export default function Home() {
     }
   }, [siteAuthenticated, currentUser, prefsLoaded]);
 
+  // Check if prospecting reminder should be shown
+  useEffect(() => {
+    if (siteAuthenticated && currentUser) {
+      // Check if it's after 9:30am Melbourne time
+      if (!isAfterProspectingTime()) {
+        return;
+      }
+
+      // Check if already dismissed today
+      const dismissedDate = localStorage.getItem('prospecting_reminder_dismissed');
+      const today = getMelbourneDateString();
+
+      if (dismissedDate !== today) {
+        setShowProspectingReminder(true);
+      }
+    }
+  }, [siteAuthenticated, currentUser]);
+
+  // Handle dismissing the prospecting reminder
+  const handleDismissProspectingReminder = useCallback(() => {
+    const today = getMelbourneDateString();
+    localStorage.setItem('prospecting_reminder_dismissed', today);
+    setShowProspectingReminder(false);
+  }, []);
 
   // Handle walk-on song click - opens user's walk-on song in new tab
   // Only works if user has configured a walk-on song in their preferences
@@ -886,6 +985,14 @@ export default function Home() {
             )}
             {/* Gradient overlay that continues from text area */}
             <div className="absolute inset-0 bg-gradient-to-r from-[#EE0B4F]/15 via-[#EE0B4F]/8 to-transparent pointer-events-none" />
+
+            {/* Prospecting Reminder - positioned over hero image */}
+            {showProspectingReminder && currentUser && (
+              <ProspectingReminder
+                firstName={currentUser.name.split(' ')[0]}
+                onDismiss={handleDismissProspectingReminder}
+              />
+            )}
           </div>
         </div>
       </section>
