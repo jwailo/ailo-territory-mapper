@@ -3,7 +3,36 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { MapPin, FolderOpen, Calculator, ArrowRight, Settings, BarChart3, Users, ChevronDown, LogOut, KeyRound } from 'lucide-react';
+import {
+  MapPin,
+  FolderOpen,
+  Calculator,
+  ArrowRight,
+  Settings,
+  BarChart3,
+  Users,
+  ChevronDown,
+  LogOut,
+  KeyRound,
+  MessageCircleQuestion,
+  Network,
+  CalendarDays,
+  CalendarClock,
+  FileText,
+  BookOpen,
+  DollarSign,
+  Bot,
+  Rocket,
+  Video,
+  FolderKanban,
+  Globe,
+  Plane,
+  GraduationCap,
+  Shield,
+  Sparkles,
+  HelpCircle,
+  ExternalLink,
+} from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import {
   isSiteAuthenticated,
@@ -78,142 +107,410 @@ function getTimeBasedGreeting(firstName: string): string {
   return greetings[randomIndex](firstName);
 }
 
-const tools = [
+// Link item type
+interface LinkItem {
+  title: string;
+  icon: LucideIcon;
+  href: string;
+  internal?: boolean; // true = internal Next.js link, false = external
+  comingSoon?: boolean;
+  authPassthrough?: boolean; // true = needs auth token passthrough
+  specialHandler?: 'case-studies' | 'cost-calculator' | 'territory-map';
+}
+
+// Category type
+interface Category {
+  title: string;
+  icon: LucideIcon;
+  collapsible: boolean;
+  defaultOpen: boolean;
+  links: LinkItem[];
+}
+
+// Define all categories and their links
+const categories: Category[] = [
   {
-    title: 'Territory Map',
-    description: 'Explore company locations and territories across the region',
-    icon: MapPin,
-    href: '/map',
-    internal: true,
+    title: 'Tools',
+    icon: Settings,
+    collapsible: false,
+    defaultOpen: true,
+    links: [
+      {
+        title: 'Territory Mapper',
+        icon: MapPin,
+        href: '/map',
+        internal: true,
+        specialHandler: 'territory-map',
+      },
+      {
+        title: 'True Cost Calculator',
+        icon: Calculator,
+        href: 'cost-calculator',
+        internal: false,
+        authPassthrough: true,
+        specialHandler: 'cost-calculator',
+      },
+      {
+        title: 'Case Study Database',
+        icon: FolderOpen,
+        href: 'case-studies',
+        internal: false,
+        authPassthrough: true,
+        specialHandler: 'case-studies',
+      },
+    ],
   },
   {
-    title: 'Case Study Database',
-    description: 'Search and share customer success stories that close deals',
-    icon: FolderOpen,
-    href: 'case-studies', // Will be dynamically generated with auth token
-    internal: false,
+    title: 'Internal Calendars / Schedules',
+    icon: CalendarDays,
+    collapsible: true,
+    defaultOpen: false,
+    links: [
+      {
+        title: 'Slack Guide & Questions',
+        icon: MessageCircleQuestion,
+        href: 'https://docs.google.com/document/d/1oGcmmfPVf_Bkc8PevSRFBsNOYDh_7VjUsKO63ICnvRM/edit?tab=t.0#heading=h.bqmeuzxvajp',
+        internal: false,
+      },
+      {
+        title: 'Org Chart',
+        icon: Network,
+        href: 'https://ailohq.bamboohr.com/employees/orgchart.php',
+        internal: false,
+      },
+      {
+        title: '2026 Go Live Schedule',
+        icon: CalendarClock,
+        href: 'https://docs.google.com/spreadsheets/d/1PXpDo1FvxjZmKqG434rj1xgcWq1NmD-nHAjqnOMKE4g/edit?gid=481126026#gid=481126026',
+        internal: false,
+      },
+      {
+        title: '2026 MECCA Event Calendar',
+        icon: CalendarDays,
+        href: '#',
+        internal: false,
+        comingSoon: true,
+      },
+      {
+        title: 'Case Study Submission Form',
+        icon: FileText,
+        href: 'https://docs.google.com/forms/d/e/1FAIpQLSdZGKCcjE6C2JBPeJ9DpfBYoQbzIG5Mdsw4vrVCDN6xwxDlLA/viewform',
+        internal: false,
+      },
+    ],
   },
   {
-    title: 'True Cost Calculator',
-    description: 'Calculate and compare true costs for prospects',
-    icon: Calculator,
-    href: 'cost-calculator', // Will be dynamically generated with auth token
-    internal: false,
+    title: 'Sales Procedures',
+    icon: BookOpen,
+    collapsible: true,
+    defaultOpen: false,
+    links: [
+      {
+        title: 'Ailo Sales Procedure Manual',
+        icon: BookOpen,
+        href: 'https://docs.google.com/document/d/1pKFbbw7DG5UejwGOIlW-Em6ZvGlqvHaiuuHyu_WQKIs/edit?tab=t.0',
+        internal: false,
+      },
+      {
+        title: 'Pricing Outline',
+        icon: DollarSign,
+        href: 'https://docs.google.com/document/d/1gimbrDPvI02J3-kljupuiIDHbknq0uZY9Xp-f0iftGg/edit?tab=t.0#heading=h.o44vkal88k89',
+        internal: false,
+      },
+      {
+        title: 'Ailo Meeting Summary GPT',
+        icon: Bot,
+        href: 'https://chatgpt.com/g/g-692e739f479c8191894b0858445a7fc5-ailo-meeting-summary',
+        internal: false,
+      },
+      {
+        title: 'Ailo Accelerate + Sales Playbook',
+        icon: Rocket,
+        href: 'https://docs.google.com/document/d/1eXeN-dfBLfsjb3dc9tgQL4ndhXYwt5Q4Y8WEIC_aYnA/edit?tab=t.0#heading=h.y4kxj41p3t4p',
+        internal: false,
+      },
+    ],
+  },
+  {
+    title: 'Sales Resources',
+    icon: FolderKanban,
+    collapsible: true,
+    defaultOpen: false,
+    links: [
+      {
+        title: 'True Cost Calculator (Public)',
+        icon: Calculator,
+        href: 'https://true-cost-calculator.ailo.io/',
+        internal: false,
+      },
+      {
+        title: 'True Cost Industry Benchmark',
+        icon: BarChart3,
+        href: 'https://true-cost-industry-benchmark.ailo.io/',
+        internal: false,
+      },
+      {
+        title: 'Why Now Video Library',
+        icon: Video,
+        href: 'https://ailo.io/why-now',
+        internal: false,
+      },
+      {
+        title: 'Ailo Overview Video Library',
+        icon: Video,
+        href: 'https://ailo.io/ailo-overview',
+        internal: false,
+      },
+      {
+        title: 'Sales Collateral Folder',
+        icon: FolderKanban,
+        href: 'https://drive.google.com/drive/folders/1lpQq880z8Aco-fg32gvous89HfesjScc?usp=drive_link',
+        internal: false,
+      },
+    ],
+  },
+  {
+    title: 'Ailo Landing Pages',
+    icon: Globe,
+    collapsible: true,
+    defaultOpen: false,
+    links: [
+      {
+        title: 'Accelerate Landing Page',
+        icon: Rocket,
+        href: 'https://ailo.io/accelerate-plan',
+        internal: false,
+      },
+      {
+        title: 'Migrating to Ailo',
+        icon: Plane,
+        href: 'https://ailo.io/handbook-migration',
+        internal: false,
+      },
+      {
+        title: 'Training & Onboarding',
+        icon: GraduationCap,
+        href: 'https://ailo.io/handbook-training-onboarding',
+        internal: false,
+      },
+      {
+        title: 'Compliance',
+        icon: Shield,
+        href: 'https://ailo.io/property-managers/property-compliance',
+        internal: false,
+      },
+      {
+        title: "What's New",
+        icon: Sparkles,
+        href: 'https://ailo.io/whats-new',
+        internal: false,
+      },
+    ],
+  },
+  {
+    title: 'HubSpot Knowledge Base',
+    icon: HelpCircle,
+    collapsible: true,
+    defaultOpen: false,
+    links: [
+      {
+        title: 'Teams vs Permission Sets',
+        icon: Users,
+        href: 'https://drive.google.com/file/d/1eURBLgE4hHH3MUpo1go0KCgF-okCU7C5/view?usp=sharing',
+        internal: false,
+      },
+    ],
   },
 ];
 
-function ToolCard({
+// Link tile component - matches existing tool card styling
+function LinkTile({
   title,
-  description,
   icon: Icon,
   href,
   internal,
-  onExternalClick,
-  onInternalClick,
+  comingSoon,
+  onClick,
 }: {
   title: string;
-  description: string;
   icon: LucideIcon;
   href: string;
-  internal: boolean;
-  onExternalClick?: () => void;
-  onInternalClick?: () => void;
+  internal?: boolean;
+  comingSoon?: boolean;
+  onClick?: () => void;
 }) {
   const [isHovered, setIsHovered] = useState(false);
-  const [isClicked, setIsClicked] = useState(false);
 
   const handleClick = (e: React.MouseEvent) => {
-    if (!internal && onExternalClick) {
+    if (comingSoon) {
       e.preventDefault();
-      setIsClicked(true);
-      setTimeout(() => {
-        setIsClicked(false);
-        onExternalClick();
-      }, 400);
       return;
     }
-
-    if (internal) {
-      // Fire internal click handler for tracking
-      if (onInternalClick) {
-        onInternalClick();
-      }
-      setIsClicked(true);
-      setTimeout(() => {
-        setIsClicked(false);
-      }, 400);
+    if (onClick) {
+      e.preventDefault();
+      onClick();
     }
   };
 
-  const CardContent = (
+  const TileContent = (
     <div
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className="group relative block h-full cursor-pointer"
+      className={`group relative block h-full ${comingSoon ? 'cursor-not-allowed' : 'cursor-pointer'}`}
     >
-      <div className="relative h-full overflow-hidden rounded-2xl border-2 border-gray-200 bg-white p-8 transition-all duration-300 group-hover:border-[#EE0B4F] group-hover:shadow-2xl group-hover:shadow-[#EE0B4F]/20 group-hover:-translate-y-1">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#EE0B4F]/10 via-transparent to-[#6e8fcb]/10 opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+      <div
+        className={`relative h-full overflow-hidden rounded-xl border-2 ${
+          comingSoon
+            ? 'border-gray-200 bg-gray-50'
+            : 'border-gray-200 bg-white group-hover:border-[#EE0B4F] group-hover:shadow-lg group-hover:shadow-[#EE0B4F]/10 group-hover:-translate-y-0.5'
+        } p-4 transition-all duration-300`}
+      >
+        <div className="relative flex items-center gap-3">
+          <div
+            className={`flex h-10 w-10 items-center justify-center rounded-lg transition-all duration-300 ${
+              comingSoon
+                ? 'bg-gray-200'
+                : isHovered
+                ? 'bg-[#EE0B4F]'
+                : 'bg-[#1A1A2E]'
+            }`}
+          >
+            <Icon
+              className={`h-5 w-5 ${comingSoon ? 'text-gray-400' : 'text-white'}`}
+              strokeWidth={1.5}
+            />
+          </div>
 
-        <div className="relative flex flex-col h-full">
-          <div className="relative mb-6 inline-flex">
-            <div
-              className={`flex h-16 w-16 items-center justify-center rounded-xl transition-all duration-700 ease-out ${
-                isClicked ? 'bg-[#EE0B4F] scale-150' : isHovered ? 'bg-[#EE0B4F] scale-110' : 'bg-[#1A1A2E]'
+          <div className="flex-1 min-w-0">
+            <h3
+              className={`text-sm font-semibold truncate ${
+                comingSoon ? 'text-gray-400' : 'text-gray-900'
               }`}
-              style={{
-                transform: isClicked ? 'scale(1.5) rotate(360deg)' : isHovered ? 'scale(1.1)' : 'scale(1)',
-                transition: 'all 700ms cubic-bezier(0.34, 1.56, 0.64, 1)',
-              }}
             >
-              <Icon
-                className={`h-8 w-8 transition-all duration-500 ${
-                  isClicked ? 'text-white scale-125' : 'text-white'
-                }`}
-                strokeWidth={1.5}
-              />
-            </div>
+              {title}
+            </h3>
+            {comingSoon && (
+              <span className="text-xs text-gray-400">Coming Soon</span>
+            )}
           </div>
 
-          <h3 className="mb-3 text-2xl font-bold text-gray-900">
-            {title.split(' ').map((word, i) => (
-              <span
-                key={i}
-                className="inline-block mr-2 transition-all duration-500"
-                style={{
-                  color: isClicked ? '#EE0B4F' : 'inherit',
-                  transform: isClicked ? 'translateY(-4px) scale(1.05)' : 'none',
-                  transitionDelay: isClicked ? `${i * 100}ms` : '0ms',
-                }}
-              >
-                {word}
-              </span>
-            ))}
-            <span className="block h-0.5 w-0 bg-[#EE0B4F] transition-all duration-300 group-hover:w-full" />
-          </h3>
-
-          <p className="mb-6 text-gray-600 leading-relaxed flex-1">{description}</p>
-
-          <div className="flex items-center gap-2 text-sm font-semibold text-[#EE0B4F] opacity-0 transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-2">
-            <span>Launch tool</span>
-            <ArrowRight className="h-4 w-4" />
-          </div>
+          {!comingSoon && !internal && (
+            <ExternalLink
+              className={`h-4 w-4 flex-shrink-0 transition-all duration-300 ${
+                isHovered ? 'text-[#EE0B4F]' : 'text-gray-400'
+              }`}
+            />
+          )}
+          {!comingSoon && internal && (
+            <ArrowRight
+              className={`h-4 w-4 flex-shrink-0 transition-all duration-300 ${
+                isHovered ? 'text-[#EE0B4F] translate-x-1' : 'text-gray-400'
+              }`}
+            />
+          )}
         </div>
       </div>
     </div>
   );
 
+  if (comingSoon) {
+    return <div className="h-full block">{TileContent}</div>;
+  }
+
   if (internal) {
     return (
       <Link href={href} onClick={handleClick} className="h-full block">
-        {CardContent}
+        {TileContent}
       </Link>
     );
   }
 
+  // External link - use onClick handler if provided, otherwise open in new tab
+  if (onClick) {
+    return (
+      <button onClick={handleClick} className="h-full block w-full text-left">
+        {TileContent}
+      </button>
+    );
+  }
+
   return (
-    <button onClick={handleClick} className="h-full block w-full text-left">
-      {CardContent}
-    </button>
+    <a href={href} target="_blank" rel="noopener noreferrer" className="h-full block">
+      {TileContent}
+    </a>
+  );
+}
+
+// Collapsible category section component
+function CategorySection({
+  category,
+  isOpen,
+  onToggle,
+  onLinkClick,
+}: {
+  category: Category;
+  isOpen: boolean;
+  onToggle: () => void;
+  onLinkClick: (link: LinkItem) => void;
+}) {
+  const Icon = category.icon;
+
+  return (
+    <div className="mb-6">
+      {/* Category Header */}
+      {category.collapsible ? (
+        <button
+          onClick={onToggle}
+          className="w-full flex items-center gap-3 mb-4 group"
+        >
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#1A1A2E] group-hover:bg-[#EE0B4F] transition-colors">
+            <Icon className="h-4 w-4 text-white" strokeWidth={1.5} />
+          </div>
+          <h2 className="text-sm font-semibold uppercase tracking-widest text-gray-500 group-hover:text-gray-700 transition-colors">
+            {category.title}
+          </h2>
+          <div className="h-px flex-1 bg-gray-200" />
+          <ChevronDown
+            className={`h-5 w-5 text-gray-400 transition-transform duration-300 ${
+              isOpen ? 'rotate-180' : ''
+            }`}
+          />
+        </button>
+      ) : (
+        <div className="flex items-center gap-3 mb-4">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#1A1A2E]">
+            <Icon className="h-4 w-4 text-white" strokeWidth={1.5} />
+          </div>
+          <h2 className="text-sm font-semibold uppercase tracking-widest text-gray-500">
+            {category.title}
+          </h2>
+          <div className="h-px flex-1 bg-gray-200" />
+        </div>
+      )}
+
+      {/* Category Links */}
+      <div
+        className={`grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 transition-all duration-300 ease-in-out overflow-hidden ${
+          isOpen ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+        }`}
+      >
+        {category.links.map((link) => (
+          <LinkTile
+            key={link.title}
+            title={link.title}
+            icon={link.icon}
+            href={link.href}
+            internal={link.internal}
+            comingSoon={link.comingSoon}
+            onClick={
+              link.specialHandler || link.authPassthrough
+                ? () => onLinkClick(link)
+                : undefined
+            }
+          />
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -287,12 +584,21 @@ export default function Home() {
   // Change password modal state
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
 
+  // Category open states - initialize with default open states
+  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    categories.forEach((cat) => {
+      initial[cat.title] = cat.defaultOpen;
+    });
+    return initial;
+  });
+
   const siteAuthenticated = authState.authenticated;
   const authChecked = authState.checked;
   const currentUser = authState.user;
   const handleAuthenticated = (user: User) => setAuthState({ authenticated: true, checked: true, user });
 
-  
+
   // On client side, ensure auth is checked if SSR returned unchecked
   useEffect(() => {
     if (!authState.checked) {
@@ -324,7 +630,7 @@ export default function Home() {
     }
   }, [siteAuthenticated, currentUser, prefsLoaded]);
 
-  
+
   // Handle walk-on song click - opens user's walk-on song in new tab
   // Only works if user has configured a walk-on song in their preferences
   const handleWalkonSongClick = () => {
@@ -349,23 +655,28 @@ export default function Home() {
     setPrefsLoaded(false);
   };
 
-  // Case Study Database handler
-  const handleCaseStudyClick = () => {
-    trackToolOpen('case_study_library');
-    const url = getCaseStudyUrl();
-    window.location.href = url;
+  // Handle link clicks for special handlers
+  const handleLinkClick = (link: LinkItem) => {
+    if (link.specialHandler === 'case-studies') {
+      trackToolOpen('case_study_library');
+      const url = getCaseStudyUrl();
+      window.location.href = url;
+    } else if (link.specialHandler === 'cost-calculator') {
+      trackToolOpen('cost_calculator');
+      const url = getCostCalculatorUrl();
+      window.location.href = url;
+    } else if (link.specialHandler === 'territory-map') {
+      trackToolOpen('territory_map');
+      // Internal link - navigation handled by Link component
+    }
   };
 
-  // Cost Calculator handler
-  const handleCostCalculatorClick = () => {
-    trackToolOpen('cost_calculator');
-    const url = getCostCalculatorUrl();
-    window.location.href = url;
-  };
-
-  // Territory Map handler (for tracking)
-  const handleTerritoryMapClick = () => {
-    trackToolOpen('territory_map');
+  // Toggle category open state
+  const toggleCategory = (title: string) => {
+    setOpenCategories((prev) => ({
+      ...prev,
+      [title]: !prev[title],
+    }));
   };
 
   // Show nothing while checking auth status
@@ -522,39 +833,17 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="relative flex-1 bg-gray-50 py-16 lg:py-20">
+      <section className="relative flex-1 bg-gray-50 py-12 lg:py-16">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="mb-10 flex items-center gap-4">
-            <h2 className="text-sm font-semibold uppercase tracking-widest text-gray-500">Your Tools</h2>
-            <div className="h-px flex-1 bg-gray-200" />
-          </div>
-
-          <div className="grid gap-12 md:grid-cols-2 lg:grid-cols-3 items-stretch">
-            {tools.map((tool) => {
-              // Determine the click handler based on tool title
-              let clickHandler: (() => void) | undefined;
-              if (tool.title === 'Case Study Database') {
-                clickHandler = handleCaseStudyClick;
-              } else if (tool.title === 'True Cost Calculator') {
-                clickHandler = handleCostCalculatorClick;
-              } else if (tool.title === 'Territory Map') {
-                clickHandler = handleTerritoryMapClick;
-              }
-
-              return (
-                <ToolCard
-                  key={tool.title}
-                  title={tool.title}
-                  description={tool.description}
-                  icon={tool.icon}
-                  href={tool.href}
-                  internal={tool.internal}
-                  onExternalClick={!tool.internal ? clickHandler : undefined}
-                  onInternalClick={tool.internal ? clickHandler : undefined}
-                />
-              );
-            })}
-          </div>
+          {categories.map((category) => (
+            <CategorySection
+              key={category.title}
+              category={category}
+              isOpen={openCategories[category.title]}
+              onToggle={() => toggleCategory(category.title)}
+              onLinkClick={handleLinkClick}
+            />
+          ))}
         </div>
       </section>
 
