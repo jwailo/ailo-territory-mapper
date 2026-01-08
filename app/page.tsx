@@ -866,7 +866,7 @@ export default function Home() {
               </h1>
 
               <p className="mt-8 max-w-xl text-lg text-[#1A1A2E]/70 leading-relaxed lg:text-xl">
-                Everything you need to prospect, pitch, and win. Built for the Ailo sales team.
+                You don't get results by focusing on results. You get results by focusing on the habits and behaviours that produce results.
               </p>
             </div>
           </div>
