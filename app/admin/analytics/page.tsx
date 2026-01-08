@@ -667,7 +667,9 @@ export default function AdminAnalyticsPage() {
                         </span>{' '}
                         {action}{' '}
                         <span className={`font-medium ${tool.color}`}>
-                          {tool.name}
+                          {event.metadata && 'link' in event.metadata
+                            ? String(event.metadata.link)
+                            : tool.name}
                         </span>
                         {event.metadata && 'button' in event.metadata && (
                           <span className="text-gray-500">
