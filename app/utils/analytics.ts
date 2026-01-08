@@ -43,8 +43,16 @@ export function trackPageView(toolName: ToolName, pageName?: string): void {
 /**
  * Track a tool being opened
  */
-export function trackToolOpen(toolName: ToolName): void {
-  trackEvent(toolName, 'tool_open');
+export function trackToolOpen(toolName: ToolName, metadata?: Record<string, unknown>): void {
+  trackEvent(toolName, 'tool_open', metadata);
+}
+
+/**
+ * Track an external link being opened
+ * Used for tracking clicks on resource links in the ASET Hub
+ */
+export function trackLinkOpen(toolName: ToolName, linkTitle: string): void {
+  trackEvent(toolName, 'tool_open', { link: linkTitle });
 }
 
 /**

@@ -51,6 +51,31 @@ const TOOL_DISPLAY: Record<
   },
   admin: { name: 'Admin', color: 'text-orange-600', bgColor: 'bg-orange-100' },
   aset_hub: { name: 'ASET Hub', color: 'text-pink-600', bgColor: 'bg-pink-100' },
+  internal_calendars: {
+    name: 'Internal Calendars',
+    color: 'text-cyan-600',
+    bgColor: 'bg-cyan-100',
+  },
+  sales_procedures: {
+    name: 'Sales Procedures',
+    color: 'text-amber-600',
+    bgColor: 'bg-amber-100',
+  },
+  sales_resources: {
+    name: 'Sales Resources',
+    color: 'text-lime-600',
+    bgColor: 'bg-lime-100',
+  },
+  landing_pages: {
+    name: 'Landing Pages',
+    color: 'text-violet-600',
+    bgColor: 'bg-violet-100',
+  },
+  hubspot_kb: {
+    name: 'HubSpot KB',
+    color: 'text-rose-600',
+    bgColor: 'bg-rose-100',
+  },
 };
 
 // Action display names
@@ -315,7 +340,7 @@ export default function AdminAnalyticsPage() {
   };
 
   const getTrendPercent = (current: number, previous: number) => {
-    if (previous === 0) return current > 0 ? '+100%' : '0%';
+    if (previous === 0) return current > 0 ? 'New' : '0%';
     const change = ((current - previous) / previous) * 100;
     return change >= 0 ? `+${change.toFixed(0)}%` : `${change.toFixed(0)}%`;
   };

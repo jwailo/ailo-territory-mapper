@@ -45,7 +45,8 @@ import {
   clearCurrentUser,
   User,
 } from './utils/auth';
-import { trackToolOpen, trackButtonClick, trackPageView } from './utils/analytics';
+import { trackToolOpen, trackButtonClick, trackPageView, trackLinkOpen } from './utils/analytics';
+import type { ToolName } from './utils/supabase';
 import {
   getUserPreferences,
   getWeeklyHeroImage as getWeeklyHeroFromPrefs,
@@ -196,6 +197,7 @@ interface Category {
   icon: LucideIcon;
   collapsible: boolean;
   defaultOpen: boolean;
+  trackingCategory?: ToolName; // Analytics tracking category for this section
   links: LinkItem[];
 }
 
@@ -240,6 +242,7 @@ const categories: Category[] = [
     icon: CalendarDays,
     collapsible: true,
     defaultOpen: false,
+    trackingCategory: 'internal_calendars',
     links: [
       {
         title: 'Slack Guide & Questions',
@@ -284,6 +287,7 @@ const categories: Category[] = [
     icon: BookOpen,
     collapsible: true,
     defaultOpen: false,
+    trackingCategory: 'sales_procedures',
     links: [
       {
         title: 'Ailo Sales Procedure Manual',
@@ -320,6 +324,7 @@ const categories: Category[] = [
     icon: FolderKanban,
     collapsible: true,
     defaultOpen: false,
+    trackingCategory: 'sales_resources',
     links: [
       {
         title: 'True Cost Calculator (Public)',
@@ -363,6 +368,7 @@ const categories: Category[] = [
     icon: Globe,
     collapsible: true,
     defaultOpen: false,
+    trackingCategory: 'landing_pages',
     links: [
       {
         title: 'Accelerate Landing Page',
@@ -406,6 +412,7 @@ const categories: Category[] = [
     icon: HelpCircle,
     collapsible: true,
     defaultOpen: false,
+    trackingCategory: 'hubspot_kb',
     links: [
       {
         title: 'Teams vs Permission Sets',
@@ -427,6 +434,7 @@ function LinkTile({
   internal,
   comingSoon,
   onClick,
+  trackingCategory,
 }: {
   title: string;
   description: string;
@@ -435,6 +443,7 @@ function LinkTile({
   internal?: boolean;
   comingSoon?: boolean;
   onClick?: () => void;
+  trackingCategory?: ToolName;
 }) {
   const [isHovered, setIsHovered] = useState(false);
   const [isClicked, setIsClicked] = useState(false);
@@ -443,6 +452,10 @@ function LinkTile({
     if (comingSoon) {
       e.preventDefault();
       return;
+    }
+    // Track external link clicks if trackingCategory is provided
+    if (trackingCategory && !internal) {
+      trackLinkOpen(trackingCategory, title);
     }
     setIsClicked(true);
     setTimeout(() => {
@@ -631,6 +644,7 @@ function CategorySection({
             href={link.href}
             internal={link.internal}
             comingSoon={link.comingSoon}
+            trackingCategory={category.trackingCategory}
             onClick={
               link.specialHandler || link.authPassthrough
                 ? () => onLinkClick(link)

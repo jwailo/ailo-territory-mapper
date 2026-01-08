@@ -49,7 +49,17 @@ export interface DbComplianceZone {
 }
 
 // Analytics event types
-export type ToolName = 'territory_map' | 'cost_calculator' | 'case_study_library' | 'admin' | 'aset_hub';
+export type ToolName =
+  | 'territory_map'
+  | 'cost_calculator'
+  | 'case_study_library'
+  | 'admin'
+  | 'aset_hub'
+  | 'internal_calendars'
+  | 'sales_procedures'
+  | 'sales_resources'
+  | 'landing_pages'
+  | 'hubspot_kb';
 export type EventAction =
   | 'page_view'
   | 'tool_open'
